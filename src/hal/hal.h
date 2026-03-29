@@ -17,7 +17,7 @@
 #define SOFTWARE_VERSION "v1.1.13"
 #define HARDWARE_VERSION "v1.0.2"
 
-// #define INA228_EN 1
+#define INA228_EN 1
 
 extern uint64_t SNID;
 extern int32_t nowTime, lastTime;
@@ -27,6 +27,8 @@ extern bool graphPaused;    //VA曲线暂停标志
 extern uint8_t defaultBrightness; //LCD亮度
 extern uint8_t defaultRotation;   //LCD旋转
 extern uint8_t sample_mode; //0: fast, 1: normal, 2: slow
+
+// HAL命名空间 INA接口定义
 namespace HAL
 {
     typedef struct
@@ -46,6 +48,7 @@ namespace HAL
     } INA22x_Data;
 }
 
+//HAL命名空间 UI和功能接口定义
 namespace HAL
 {
     /* System */
@@ -82,6 +85,7 @@ namespace HAL
     void UI_Menu();
 } // namespace HAL
 
+// AppState命名空间 定义应用代号
 namespace AppState
 {
     constexpr uint8_t UI_MAIN = 0;
