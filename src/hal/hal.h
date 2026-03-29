@@ -17,6 +17,8 @@
 #define SOFTWARE_VERSION "v1.1.13"
 #define HARDWARE_VERSION "v1.0.2"
 
+// #define INA228_EN 1
+
 extern uint64_t SNID;
 extern int32_t nowTime, lastTime;
 extern int32_t startTime;
