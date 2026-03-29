@@ -14,7 +14,7 @@
 #define BUTTON_SW0 9 //复用启动引脚
 #define BUTTON_SW1 10
 
-#define SOFTWARE_VERSION "v1.1.13"
+#define SOFTWARE_VERSION "v1.1.15"
 #define HARDWARE_VERSION "v1.0.2"
 
 #define INA228_EN 1
@@ -46,6 +46,24 @@ namespace HAL
         uint16_t device_id;  // in device id
         uint16_t status;  // status flags
     } INA22x_Data;
+
+    #pragma pack(push, 1)
+    typedef struct
+    {
+        uint8_t header;        // Packet header (0xAA)
+        float voltage;       // in Volts
+        float current;       // in Amperes
+        float power;         // in Watts
+        float energy_mWh;        // in Watt-hours
+        float charge_mAh;        // in Ampere-hours
+        float energy_Wh;         // in Watt-hours
+        float charge_Ah;         // in Ampere-hours
+        float temperature;       // in Die-temperature
+        uint64_t time_ms;       // in milliseconds since device start
+        bool current_direction; // true for left, false for right
+        uint8_t checksum;       // Simple checksum XOR of all previous bytes
+    } USB_CDC_Data;
+    #pragma pack(pop)
 }
 
 //HAL命名空间 UI和功能接口定义
@@ -56,14 +74,13 @@ namespace HAL
     void LOG_INFO(const String msg);
     String Get_System_RunTime(uint32_t ms);
     String Get_System_Status();
-    void UART_Command();
     float Get_CPU_Temperature();
     void APP_Run();
     uint8_t Sys_NVS_Valid(const char* key, uint8_t default_val, uint8_t max_val = 255, uint8_t min_val = 0);
     uint8_t Sys_NVS_Read(const char* key, uint8_t default_val);
     void Sys_NVS_Write(const char* key, uint8_t value);
     /* USB */
-
+    void UART_Command();
     /* Button */
     void Button_Init();
     void Button_Click();

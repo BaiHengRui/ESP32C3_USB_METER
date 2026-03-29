@@ -107,6 +107,8 @@ void Key2LongPress(Button2& btn2) {
         }
     } else if (nowApp == AppState::UI_WAVEGRAPH) {
         graphPaused = !graphPaused;
+    }else if (nowApp == AppState::UI_MAIN) {
+        nowApp = AppState::UI_SYSTEM_INFO;
     }
     HAL::LOG_INFO("SW2 TimeOut");
 }
