@@ -1,6 +1,6 @@
 #include "hal.h"
 
-#ifdef INA228_EN
+#if INA228_EN
     #include "INA228.h"
     INA228 ina(Wire);
 #else
@@ -19,7 +19,7 @@ int32_t nowTime(0), lastTime(0);
 bool HAL::INA22x_Init(){ 
     ina.begin(0x40);
     ina.calibrate(0.005f,8); //5m ohm 最大期望电流8A
-    #ifdef INA228_EN
+    #if INA228_EN
     //INA228特有功能，设置温度系数和启用温度补偿
         ina.setShuntTemperatureCoefficient(100); // 设置温度系数100ppm/*C
         ina.enableTemperatureCompensation(true);
@@ -39,14 +39,14 @@ void HAL::INA22x_GetData(INA22x_Data *data){
     data->power   = fabs(ina.readPower());
     //sample = avg * count
     data->current_direction = (ina.readCurrent() < 0) ? 1 : 0;
-    #ifdef INA228_EN
+    #if INA228_EN
     //INA228实现 内部累计功能，直接读取
         data->temperature = ina.readTemperature();
         data->charge_mAh = fabs(ina.readCharge_mAh());
         data->energy_mWh = ina.readEnergy_mWh();
     #else
     //INA226实现 没有硬件累计功能，时间积分计算
-        data->temperature = ESP.getCpuTemperature();
+        data->temperature = Get_CPU_Temperature();
         data->charge_mAh += (data->current * (nowTime - lastTime)) / (3600.0f * 1);
         data->energy_mWh += (data->power * (nowTime - lastTime)) / (3600.0f * 1);
     #endif
@@ -57,7 +57,7 @@ void HAL::INA22x_GetData(INA22x_Data *data){
 }
 
 void HAL::INA22x_SetConfig(uint8_t sample_mode){
-    #ifdef INA228_EN
+    #if INA228_EN
     // INA228支持更高级的配置选项，可以根据需要进行调整
         switch (sample_mode)
         {    
@@ -79,16 +79,16 @@ void HAL::INA22x_SetConfig(uint8_t sample_mode){
         switch (sample_mode)
         {    
         case 0:
-            ina.configure(INA226_AVERAGES_16, INA226_CONV_TIME_140US, INA226_CONV_TIME_140US, INA226_MODE_CONTINUOUS);
+            ina.configure(INA226_AVERAGES_16, INA226_CONV_TIME_140US, INA226_CONV_TIME_140US, INA226_MODE_SHUNT_BUS_CONT);
             break;
         case 1:
-            ina.configure(INA226_AVERAGES_64, INA226_CONV_TIME_560US, INA226_CONV_TIME_560US, INA226_MODE_CONTINUOUS);
+            ina.configure(INA226_AVERAGES_64, INA226_CONV_TIME_588US, INA226_CONV_TIME_588US, INA226_MODE_SHUNT_BUS_CONT);
             break;
         case 2:
-            ina.configure(INA226_AVERAGES_128, INA226_CONV_TIME_1100US, INA226_CONV_TIME_1100US, INA226_MODE_CONTINUOUS);
+            ina.configure(INA226_AVERAGES_128, INA226_CONV_TIME_1100US, INA226_CONV_TIME_1100US, INA226_MODE_SHUNT_BUS_CONT);
             break;
         default:
-            ina.configure(INA226_AVERAGES_16, INA226_CONV_TIME_140US, INA226_CONV_TIME_140US, INA226_MODE_CONTINUOUS);
+            ina.configure(INA226_AVERAGES_16, INA226_CONV_TIME_140US, INA226_CONV_TIME_140US, INA226_MODE_SHUNT_BUS_CONT);
             break;
         }
     #endif
