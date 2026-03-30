@@ -8,6 +8,13 @@
     方向 3
     采样 0
 
+#### 烧录选项
+Releases里存放编译好的固件，可以使用flash_download_tool工具进行烧录
+228尾缀为INA228系列固件，226尾缀为INA226系列固件
+bootloader.bin -> 0x0000
+partitions.bin -> 0x8000
+firmware.bin -> 0x10000
+
 ## 更新日志
 
 V1.1.12

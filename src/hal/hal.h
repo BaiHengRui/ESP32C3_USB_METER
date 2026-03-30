@@ -14,6 +14,7 @@
 #define BUTTON_SW0 9 //复用启动引脚
 #define BUTTON_SW1 10
 
+//Mojor,Minor,Patch
 #define SOFTWARE_VERSION "v1.1.15"
 #define HARDWARE_VERSION "v1.0.2"
 
