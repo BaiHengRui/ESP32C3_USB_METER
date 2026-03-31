@@ -44,7 +44,7 @@ void Task_INA22x(void *pvParameters)
   while (1)
   {
     HAL::INA22x_GetData(&INA);
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
   }
 }
 
@@ -54,7 +54,7 @@ void Task_UART_Command(void *pvParameters)
   while (1)
   {
     HAL::UART_Command();
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
   }
 }
 
