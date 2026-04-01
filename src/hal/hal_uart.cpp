@@ -108,7 +108,7 @@ static void handle_help() {
     Serial.println("sample:<fast>/<normal>/<slow> -设置采样率");
     Serial.println("info                -设备信息");
     Serial.println("restart             -重启");
-    Serial.println("data                -发送二进制数据包");
+    Serial.println("data                -发送数据包");
     Serial.println("help                -显示此帮助信息");
     Serial.println("=========================\n");
 }

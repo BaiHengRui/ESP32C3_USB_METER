@@ -30,12 +30,6 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  // HAL::INA22x_GetData(&INA);
-  // HAL::UART_Command();
-  // HAL::APP_Run();
-  // HAL::Button_Click();
-  // HAL::Get_FPS();
-  // HAL::LOG_INFO("The Loop is running.");
 }
 
 void Task_INA22x(void *pvParameters)

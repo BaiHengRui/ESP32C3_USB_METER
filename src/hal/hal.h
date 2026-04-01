@@ -64,7 +64,7 @@ namespace HAL
         bool current_direction; // true for left, false for right
         uint8_t checksum;       // Simple checksum XOR of all previous bytes
     } USB_CDC_Data;
-    // all 43 bytes are sent as raw binary data over USB CDC, no delimiters, header byte (0xAA) used for synchronization, checksum for data integrity
+    // all 43 bytes are sent as raw binary data over USB CDC, no delimiters, header byte (0xAA)
     #pragma pack(pop)
 }
 
