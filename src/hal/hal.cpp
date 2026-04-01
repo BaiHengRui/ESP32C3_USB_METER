@@ -7,8 +7,6 @@ uint8_t nowApp(0),maxApp(3);
 Preferences Prefs;  // NVS Preferences object
 
 void HAL::Sys_Init(){
-    // The System initialization code goes here
-    // setCpuFrequencyMhz(240);
     // esp_task_wdt_init(10, false); //watch dog 5s time out
     Serial.begin(115200); // Serial Init
     Prefs.begin("config", false); // NVS namespace "config", read-write mode
@@ -40,9 +38,9 @@ String HAL::Get_System_RunTime(uint32_t ms){
 }
 
 String HAL::Get_System_Status(){
-    const float OVP = 30.0f; //30V
-    const float OCP = 8.0f; //8A
-    const float LVP = 4.2f; //4.2V
+    const float OVP = 49.0f; //48V for PD3.1 max voltage(48V-5A)
+    const float OCP = 8.0f; //8A for 40.96mV shunt range
+    const float LVP = 4.2f; //4.2V for DC-DC buck converter under-voltage lockout
     
     if (INA.voltage >= OVP && INA.current >= OCP)
     {
