@@ -15,7 +15,7 @@
 #define BUTTON_SW1 10
 
 //Mojor,Minor,Patch
-#define SOFTWARE_VERSION "v1.1.15"
+#define SOFTWARE_VERSION "v1.1.16"
 #define HARDWARE_VERSION "v1.0.2"
 
 #define INA228_EN 1
