@@ -25,7 +25,6 @@ void setup() {
   xTaskCreatePinnedToCore(Task_APP_Run, "Task_APP_Run", 4096, NULL, 1, &xTaskAPP, 0);
   xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 1, &xTaskButton, 0);
   vTaskDelete(NULL); // Delete the default loop task since we will be using our own tasks for handling different functionalities
-  // HAL::LCD_FillWindow(0, 0, 240, 240, 0x0000);
 }
 
 void loop() {
