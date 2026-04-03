@@ -47,7 +47,7 @@ void Task_UART_Command(void *pvParameters)
   while (1)
   {
     HAL::UART_Command();
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
   }
 }
 

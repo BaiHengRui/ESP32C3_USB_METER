@@ -8,7 +8,7 @@ Preferences Prefs;  // NVS Preferences object
 
 void HAL::Sys_Init(){
     // esp_task_wdt_init(10, false); //watch dog 5s time out
-    Serial.begin(115200); // Serial Init
+    Serial.begin(912600); // Serial Init
     Prefs.begin("config", false); // NVS namespace "config", read-write mode
     Serial.println("NVS Init!");
     // Wire.begin(I2C_SDA_PIN,I2C_SCL_PIN,400000); // I2C Init
