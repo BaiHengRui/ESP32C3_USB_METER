@@ -77,15 +77,15 @@ static void handle_sample(const String& param) {
 
 static void handle_info() {
     HAL::LOG_INFO("设备信息：");
-    Serial.println("运行时间: " + String(HAL::Get_System_RunTime(millis())));
-    Serial.println("启动时间: " + String(startTime));
+    Serial.println("上电运行时间: " + String(HAL::Get_System_RunTime(millis())));
+    Serial.println("上电启动时间: " + String(startTime));
     Serial.println("CPU温度: " + String(HAL::Get_CPU_Temperature()));
     Serial.println("可用RAM: " + String(ESP.getFreeHeap()));
     Serial.println("SDK版本: " + String(ESP.getSdkVersion()));
     Serial.println("HW: " + String(HARDWARE_VERSION));
     Serial.println("SW: " + String(SOFTWARE_VERSION));
-    Serial.println("SN: " + String(SNID,HEX));
-    Serial.println("MD5: " + String(ESP.getSketchMD5()));
+    Serial.println("SN ID: " + String(SNID,HEX));
+    Serial.println("Sketch MD5: " + String(ESP.getSketchMD5()));
     Serial.println("状态: " + String(HAL::Get_System_Status()));
     Serial.println("屏幕亮度: " + String(HAL::Sys_NVS_Read("light", defaultBrightness)));
     uint8_t current_sample = HAL::Sys_NVS_Read("sample_mode", sample_mode);
@@ -116,12 +116,6 @@ static void handle_help() {
 static void handle_data() {
     HAL::INA22x_Data ina;
     HAL::INA22x_GetData(&ina);
-
-    // 检查温度是否异常
-    if (ina.temperature > 100.0f || ina.temperature < -50.0f) {
-        Serial.print("警告: 温度读数异常: ");
-        Serial.println(ina.temperature);
-    }
 
     HAL::USB_CDC_Data tx;
     tx.header = 0xAA;

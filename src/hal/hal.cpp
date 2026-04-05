@@ -16,7 +16,7 @@ void HAL::Sys_Init(){
     pinMode(LCD_BL_PIN, OUTPUT); // LCD Backlight Pin
     SNID = ESP.getEfuseMac();
     HAL::LOG_INFO("System Initialized.");
-    HAL::LOG_INFO("SNID: " + String(SNID, HEX) + "/ SW: " + SOFTWARE_VERSION + "/ HW: " + HARDWARE_VERSION);
+    HAL::LOG_INFO("SN: " + String(SNID, HEX) + "/ SW: " + SOFTWARE_VERSION + "/ HW: " + HARDWARE_VERSION);
 }
 
 void HAL::LOG_INFO(const String msg){
