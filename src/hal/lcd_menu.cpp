@@ -26,7 +26,7 @@ namespace MenuConfig {
 
     void EnterEditMode() {
         if (selectedIndex == menuItemCount - 1) { // Exit 项
-            nowApp = AppState::UI_MAIN;            // 直接退出菜单
+            nowApp = AppState::MAIN;            // 直接退出菜单
             return;
         }
         editItem = selectedIndex;

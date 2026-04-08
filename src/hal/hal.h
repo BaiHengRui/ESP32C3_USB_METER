@@ -97,20 +97,15 @@ namespace HAL
     void LCD_SetTextColor(uint16_t color);
     void LCD_Refresh_Screen(uint32_t bgcolor);
     float Get_FPS();
-    /* UI */
-    void UI_ShowMain();
-    void UI_System_Info();
-    void UI_WaveGraph();
-    void UI_Menu();
 } // namespace HAL
 
 // AppState命名空间 定义应用代号
 namespace AppState
 {
-    constexpr uint8_t UI_MAIN = 0;
-    constexpr uint8_t UI_WAVEGRAPH = 1;
-    constexpr uint8_t UI_MENU = 2;
-    constexpr uint8_t UI_SYSTEM_INFO = 3;
+    constexpr uint8_t MAIN = 0;
+    constexpr uint8_t WAVEGRAPH = 1;
+    constexpr uint8_t MENU = 2;
+    constexpr uint8_t SYSTEM_INFO = 3;
 
 } // namespace AppState
 

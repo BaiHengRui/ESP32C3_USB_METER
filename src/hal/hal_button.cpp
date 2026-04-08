@@ -1,5 +1,5 @@
 #include <Button2.h>
-#include "hal.h"
+// #include "hal.h"
 #include "lcd_menu.h"
 
 void Key1Click(Button2&btn1);
@@ -34,11 +34,11 @@ void HAL::Button_Click(){
 }
 
 void Key1Click(Button2& btn1) {
-    if (nowApp == AppState::UI_MENU) {
+    if (nowApp == AppState::MENU) {
         switch (MenuConfig::currentMode) {
             case MenuConfig::MODE_IDLE:
                 // 空闲模式短按左键：退出菜单
-                nowApp = AppState::UI_MAIN;
+                nowApp = AppState::MAIN;
                 break;
             case MenuConfig::MODE_SELECT:
                 MenuConfig::SelectPrev();   // 上一项
@@ -55,7 +55,7 @@ void Key1Click(Button2& btn1) {
 }
 
 void Key2Click(Button2& btn2) {
-    if (nowApp == AppState::UI_MENU) {
+    if (nowApp == AppState::MENU) {
         switch (MenuConfig::currentMode) {
             case MenuConfig::MODE_IDLE:
                 // 空闲模式短按右键：无操作（可忽略）
@@ -67,14 +67,14 @@ void Key2Click(Button2& btn2) {
                 MenuConfig::AdjustValue(-1); // 减少
                 break;
         }
-    } else if (nowApp == AppState::UI_WAVEGRAPH) {
+    } else if (nowApp == AppState::WAVEGRAPH) {
         graphPaused = !graphPaused;
     }
     HAL::LOG_INFO("SW2 OnClick");
 }
 
 void Key1LongPress(Button2& btn1) {
-    if (nowApp == AppState::UI_MENU) {
+    if (nowApp == AppState::MENU) {
         switch (MenuConfig::currentMode) {
             case MenuConfig::MODE_IDLE:
                 // 空闲模式长按左键：无操作
@@ -87,13 +87,13 @@ void Key1LongPress(Button2& btn1) {
                 break;
         }
     } else {
-        nowApp = AppState::UI_MAIN;
+        nowApp = AppState::MAIN;
     }
     HAL::LOG_INFO("SW1 TimeOut");
 }
 
 void Key2LongPress(Button2& btn2) {
-    if (nowApp == AppState::UI_MENU) {
+    if (nowApp == AppState::MENU) {
         switch (MenuConfig::currentMode) {
             case MenuConfig::MODE_IDLE:
                 MenuConfig::EnterSelectMode(); // 空闲 → 选择
@@ -105,10 +105,10 @@ void Key2LongPress(Button2& btn2) {
                 MenuConfig::ExitEditMode(true); // 保存并退出编辑
                 break;
         }
-    } else if (nowApp == AppState::UI_WAVEGRAPH) {
+    } else if (nowApp == AppState::WAVEGRAPH) {
         graphPaused = !graphPaused;
-    }else if (nowApp == AppState::UI_MAIN) {
-        nowApp = AppState::UI_SYSTEM_INFO;
+    }else if (nowApp == AppState::MAIN) {
+        nowApp = AppState::SYSTEM_INFO;
     }
     HAL::LOG_INFO("SW2 TimeOut");
 }

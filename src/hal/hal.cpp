@@ -1,4 +1,5 @@
 #include "hal.h"
+#include "../ui/ui.h"
 
 uint64_t SNID(0);
 int32_t startTime(0);
@@ -75,20 +76,20 @@ float HAL::Get_CPU_Temperature(){
 void HAL::APP_Run(){
     switch (nowApp)
     {
-    case AppState::UI_MAIN:
-        HAL::UI_ShowMain();
+    case AppState::MAIN:
+        UI::ShowMain();
         break;
-    case AppState::UI_WAVEGRAPH:
-        HAL::UI_WaveGraph();
+    case AppState::WAVEGRAPH:
+        UI::WaveGraph();
         break;
-    case AppState::UI_MENU:
-        HAL::UI_Menu();
+    case AppState::MENU:
+        UI::Menu();
         break;
-    case AppState::UI_SYSTEM_INFO:
-        HAL::UI_System_Info();
+    case AppState::SYSTEM_INFO:
+        UI::System_Info();
         break;
     default:
-    HAL::UI_ShowMain();
+    UI::ShowMain();
         break;
     }
 
