@@ -119,17 +119,27 @@ static void handle_data() {
 
     HAL::USB_CDC_Data tx;
     tx.header = 0xAA;
+    tx.pack_length = sizeof(tx);
+    tx.snid = SNID;
+    //const must "/0" at end to ensure string is null-terminated
+    strncpy(tx.sw_version, SOFTWARE_VERSION, sizeof(tx.sw_version) - 1);
+    tx.sw_version[sizeof(tx.sw_version) - 1] = '\0';
+    strncpy(tx.hw_version, HARDWARE_VERSION, sizeof(tx.hw_version) - 1);
+    tx.hw_version[sizeof(tx.hw_version) - 1] = '\0';
     tx.voltage = ina.voltage;
     tx.current = ina.current;
     tx.power = ina.power;
     tx.energy_mWh = ina.energy_mWh;
     tx.charge_mAh = ina.charge_mAh;
-    tx.energy_Wh = ina.energy_Wh;
-    tx.charge_Ah = ina.charge_Ah;
+    // tx.energy_Wh = ina.energy_Wh;
+    // tx.charge_Ah = ina.charge_Ah;
     tx.temperature = ina.temperature;
     tx.time_ms = millis();
-    tx.current_direction = ina.current_direction ? 1 : 0;
-
+    // tx.current_direction = ina.current_direction ? 1 : 0;
+    tx.current_direction = ina.current_direction;
+    // String status = HAL::Get_System_Status();
+    // strncpy(tx.status, status.c_str(), sizeof(tx.status) - 1);
+    // tx.status[sizeof(tx.status) - 1] = '\0';
     // 计算校验和
     uint8_t* bytes = (uint8_t*)&tx;
     uint8_t sum = 0;

@@ -52,19 +52,24 @@ namespace HAL
     typedef struct
     {
         uint8_t header;        // Packet header (0xAA)
+        uint8_t pack_length;   // Total packet length (including header and checksum)
+        uint32_t snid;          // Device serial number
+        char sw_version[12];    // Software version string, fixed length 12 bytes(max: "v255.255.25\0")
+        char hw_version[12];    // Hardware version string, fixed length 12 bytes(max: "v255.255.25\0")
         float voltage;       // in Volts
         float current;       // in Amperes
         float power;         // in Watts
         float energy_mWh;        // in Watt-hours
         float charge_mAh;        // in Ampere-hours
-        float energy_Wh;         // in Watt-hours
-        float charge_Ah;         // in Ampere-hours
+        // float energy_Wh;         // in Watt-hours
+        // float charge_Ah;         // in Ampere-hours
         float temperature;       // in Die-temperature
         uint64_t time_ms;       // in milliseconds since device start
         bool current_direction; // true for left, false for right
+        // char status[16];       // Status string, fixed length 16 bytes (e.g., "OV/C!", "OV!", "OC!", "LV!", "RDY")
         uint8_t checksum;       // Simple checksum XOR of all previous bytes
     } USB_CDC_Data;
-    // all 43 bytes are sent as raw binary data over USB CDC, no delimiters, header byte (0xAA)
+    //Totoal size: 1+1+4+12+12+4*5+8+1=64 bytes
     #pragma pack(pop)
 }
 
