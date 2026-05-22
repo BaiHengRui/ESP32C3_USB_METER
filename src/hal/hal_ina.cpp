@@ -60,7 +60,7 @@ void HAL::INA22x_GetData(INA22x_Data *data){
 
 void HAL::INA22x_SetConfig(uint8_t sample_mode){
     #if INA228_EN
-    // INA228支持更高级的配置选项，可以根据需要进行调整
+    // INA228配置选项，可以根据需要进行调整
         switch (sample_mode)
         {    
         case 0:
