@@ -20,11 +20,14 @@ bool HAL::INA22x_Init(){
     ina.begin(0x40);
     // Rshunt = 0.005 ohm, max expected current = 8A, then ADC range should be set to ±40.96mV to maximize resolution (LSB = 78.125µV)
     // Please refer to the "calibrate" function in the INA228 library
-    ina.calibrate(0.005f,8,ADC_RANGE_40_96mV); //5m ohm 最大期望电流8A 40.96mV量程(max 8A * 5mOhm = 40mV)
     #if INA228_EN
-    //INA228特有功能，设置温度系数和启用温度补偿
+        ina.calibrate(0.005f,8,ADC_RANGE_40_96mV); //5m ohm 最大期望电流8A 40.96mV量程(max 8A * 5mOhm = 40mV)
+        //INA228特有功能，设置温度系数和启用温度补偿
         ina.setShuntTemperatureCoefficient(100); //铜锰合金电阻 温度系数100ppm/*C
         ina.enableTemperatureCompensation(true);
+    #else
+        //INA226无法设置寄存器精度
+        ina.calibrate(0.005f,8); //5m ohm 最大期望电流8A
     #endif
     HAL::INA22x_SetConfig(HAL::Sys_NVS_Valid("sample_mode", sample_mode, 2));
     HAL::LOG_INFO("INA Initialized.");
