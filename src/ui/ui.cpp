@@ -377,7 +377,7 @@ void UI::Menu() {
     spr.loadFont(Font1_18);
     spr.setTextColor(MenuColors::TEXT_PRIMARY);
     spr.setCursor(10, 2);
-    spr.print("Settings");
+    spr.print("设置");
     spr.unloadFont();
 
     // === Separator ===
