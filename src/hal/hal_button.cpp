@@ -51,7 +51,8 @@ void Key1Click(Button2& btn1) {
         // 非菜单：切换应用
         nowApp = (nowApp + 1) % (maxApp + 1);
     }
-    HAL::LOG_INFO("SW1 OnClick");
+    //概率干扰曲线解析，故注释
+    // HAL::LOG_INFO("SW1 OnClick");
 }
 
 void Key2Click(Button2& btn2) {
@@ -70,7 +71,7 @@ void Key2Click(Button2& btn2) {
     } else if (nowApp == AppState::WAVEGRAPH) {
         graphPaused = !graphPaused;
     }
-    HAL::LOG_INFO("SW2 OnClick");
+    // HAL::LOG_INFO("SW2 OnClick");
 }
 
 void Key1LongPress(Button2& btn1) {
@@ -89,7 +90,7 @@ void Key1LongPress(Button2& btn1) {
     } else {
         nowApp = AppState::MAIN;
     }
-    HAL::LOG_INFO("SW1 TimeOut");
+    // HAL::LOG_INFO("SW1 TimeOut");
 }
 
 void Key2LongPress(Button2& btn2) {
@@ -110,5 +111,5 @@ void Key2LongPress(Button2& btn2) {
     }else if (nowApp == AppState::MAIN) {
         nowApp = AppState::SYSTEM_INFO;
     }
-    HAL::LOG_INFO("SW2 TimeOut");
+    // HAL::LOG_INFO("SW2 TimeOut");
 }
