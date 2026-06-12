@@ -1,0 +1,534 @@
+/////////////////////////////////////////////////////////////////
+/*
+  Button2.cpp - Arduino Library to simplify working with buttons.
+  Copyright (C) 2017-2025 Lennart Hennigs.
+  Released under the MIT license.
+*/
+/////////////////////////////////////////////////////////////////
+
+#include "Button2.h"
+
+/////////////////////////////////////////////////////////////////
+// initialize static counter for the IDs
+
+int Button2::_nextID = 0;
+
+/////////////////////////////////////////////////////////////////
+//  default constructor
+
+Button2::Button2() {
+  pin = BTN_UNDEFINED_PIN;
+  _setID();
+}
+
+/////////////////////////////////////////////////////////////////
+// constructor
+
+Button2::Button2(uint8_t attachTo, uint8_t buttonMode /* = INPUT_PULLUP */, bool activeLow /* = true */) {
+  begin(attachTo, buttonMode, activeLow);
+  _setID();
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::begin(uint8_t attachTo, uint8_t buttonMode /* = INPUT_PULLUP */, bool activeLow /* = true */, InitCallbackFunction initCallback /* = BUTTON2_NULL */) {
+  pin = attachTo;
+  longclick_counter = 0;
+  longclick_retriggerable = false;
+  _pressedState = activeLow ? LOW : HIGH;
+
+  // Call initialization callback if provided (useful for I2C/SPI expanders, touch sensors, etc.)
+  if (initCallback != BUTTON2_NULL) {
+    initCallback();
+  }
+
+  if (attachTo != BTN_VIRTUAL_PIN) {
+    pinMode(attachTo, buttonMode);
+  }
+  //  state = activeLow ? HIGH : LOW;
+  state = _getState();
+  prev_state = state;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setDebounceTime(unsigned int ms) {
+  debounce_time_ms = ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setLongClickTime(unsigned int ms) {
+  longclick_time_ms = ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setDoubleClickTime(unsigned int ms) {
+  doubleclick_time_ms = ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+unsigned int Button2::getDebounceTime() const {
+  return debounce_time_ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+unsigned int Button2::getLongClickTime() const {
+  return longclick_time_ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+unsigned int Button2::getDoubleClickTime() const {
+  return doubleclick_time_ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+uint8_t Button2::getPin() const {
+  return pin;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setButtonStateFunction(StateCallbackFunction f) {
+  get_state_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+bool Button2::operator==(const Button2 &rhs) const {
+  return (this == &rhs);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setChangedHandler(CallbackFunction f) {
+  change_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setPressedHandler(CallbackFunction f) {
+  pressed_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setReleasedHandler(CallbackFunction f) {
+  released_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setClickHandler(CallbackFunction f) {
+  click_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setTapHandler(CallbackFunction f) {
+  tap_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setLongClickHandler(CallbackFunction f) {
+  long_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setLongClickDetectedRetriggerable(bool retriggerable) {
+  longclick_retriggerable = retriggerable;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setLongClickDetectedHandler(CallbackFunction f) {
+  longclick_detected_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setDoubleClickHandler(CallbackFunction f) {
+  double_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setTripleClickHandler(CallbackFunction f) {
+  triple_cb = BUTTON2_MOVE(f);
+}
+
+/////////////////////////////////////////////////////////////////
+
+unsigned int Button2::wasPressedFor() const {
+  return down_time_ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+bool Button2::isPressed() const {
+  return (state == _pressedState);
+}
+
+/////////////////////////////////////////////////////////////////
+
+bool Button2::isPressedRaw() const {
+  return (_getState() == _pressedState);
+}
+
+/////////////////////////////////////////////////////////////////
+
+uint8_t Button2::getNumberOfClicks() const {
+  return last_click_count;
+}
+
+/////////////////////////////////////////////////////////////////
+
+clickType Button2::getType() const {
+  return last_click_type;
+}
+
+/////////////////////////////////////////////////////////////////
+
+int Button2::getID() const {
+  return id;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::setID(int newID) {
+  id = newID;
+}
+
+/////////////////////////////////////////////////////////////////
+
+const char* Button2::clickToString(clickType type) const {
+  if (type == single_click) return "single click";
+  if (type == double_click) return "double click";
+  if (type == triple_click) return "triple click";
+  if (type == long_click) return "long click";
+  return "none";
+}
+
+/////////////////////////////////////////////////////////////////
+
+bool Button2::wasPressed() const {
+  return was_pressed;
+}
+
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::resetPressedState() {
+  was_pressed = false;
+  last_click_type = clickType::empty;
+  last_click_count = 0;
+  click_count = 0;
+  down_time_ms = 0;
+  click_ms = 0;
+  down_ms = 0;
+  pressed_triggered = false;
+  longclick_detected = false;
+  longclick_reported = false;
+  longclick_counter = 0;
+}
+
+
+/////////////////////////////////////////////////////////////////
+
+uint8_t Button2::resetClickCount() {
+  uint8_t tmp = last_click_count;
+  last_click_count = 0;
+  return tmp;
+}
+
+/////////////////////////////////////////////////////////////////
+
+clickType Button2::read(bool keepState /* = false */) {
+  if (keepState) return last_click_type;
+
+  clickType res = last_click_type;
+  resetPressedState();
+  return res;
+}
+
+/////////////////////////////////////////////////////////////////
+
+clickType Button2::wait(bool keepState /* = false */) {
+  while (!wasPressed()) {
+    loop();
+  }
+  return read(keepState);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::waitForClick(bool keepState /* = false */) {
+  do {
+    while (!wasPressed()) {
+      loop();
+    }
+  } while (read() != single_click);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::waitForDouble(bool keepState /* = false */) {
+  do {
+    while (!wasPressed()) {
+      loop();
+    }
+  } while (read() != double_click);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::waitForTriple(bool keepState /* = false */) {
+  do {
+    while (!wasPressed()) {
+      loop();
+    }
+  } while (read() != triple_click);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::waitForLong(bool keepState /* = false */) {
+  do {
+    while (!wasPressed()) {
+      loop();
+    }
+  } while (read() != long_click);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::reset() {
+  pin = BTN_UNDEFINED_PIN;
+
+  resetPressedState();
+
+  pressed_cb = BUTTON2_NULL;
+  released_cb = BUTTON2_NULL;
+  change_cb = BUTTON2_NULL;
+  tap_cb = BUTTON2_NULL;
+  click_cb = BUTTON2_NULL;
+  long_cb = BUTTON2_NULL;
+  longclick_detected_cb = BUTTON2_NULL;
+  double_cb = BUTTON2_NULL;
+  triple_cb = BUTTON2_NULL;
+}
+
+/////////////////////////////////////////////////////////////////
+
+// IMPORTANT: This function must be called regularly for the button library to work.
+// Recommended call frequency: Every 1-10ms for optimal responsiveness and timing accuracy.
+//
+// Timing accuracy considerations:
+// - Debouncing depends on precise timing measurements
+// - Multi-click detection relies on timeout windows
+// - Long press detection requires continuous monitoring
+//
+// If loop() is not called frequently enough:
+// - Debouncing may not work correctly (missed bounces)
+// - Double/triple click detection may fail (missed clicks)
+// - Long press timing will be less accurate
+//
+// Example good practice:
+//   void loop() {
+//     button.loop();  // Call early and often
+//     // ... other non-blocking code
+//   }
+//
+// Avoid:
+//   - Long delay() calls between loop() invocations
+//   - Blocking operations that prevent regular calling
+//   - Calling less frequently than ~10ms
+void Button2::loop() {
+  if (pin == BTN_UNDEFINED_PIN) return;
+
+  prev_state = state;
+  state = _getState();
+
+  if (state == _pressedState) {
+    _handlePress(millis());
+  } else {
+    _handleRelease(millis());
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_handlePress(long now) {
+  // is it pressed now?
+  if (prev_state != _pressedState) {
+    _pressedNow(now);
+    return;
+  }
+
+  // Debouncing strategy: Wait for button to be pressed continuously
+  // for debounce_time_ms BEFORE triggering the press event.
+  // This filters out mechanical bounce on the press edge.
+  if (!pressed_triggered) {
+    if (now - down_ms >= debounce_time_ms) {
+      pressed_triggered = true;
+      _validKeypress();
+    }
+  }
+
+  // Long press detection: Only check on the first click to avoid ambiguity
+  // between multi-click sequences and long press detection.
+  // See _checkForLongClick() for details.
+  if (click_count == 1) {
+    _checkForLongClick(now);
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_setID() {
+  id = _nextID;
+  _nextID++;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_handleRelease(long now) {
+  // is it released right now?
+  if (prev_state == _pressedState) {
+    _releasedNow(now);
+    return;
+  }
+  // report click after double click time has passed
+  if (now - click_ms > doubleclick_time_ms) {
+    _reportClicks();
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_pressedNow(long now) {
+  down_ms = now;
+  pressed_triggered = false;
+  click_ms = down_ms;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_validKeypress() {
+  click_count++;
+  if (change_cb != BUTTON2_NULL) change_cb(*this);
+  if (pressed_cb != BUTTON2_NULL) pressed_cb(*this);
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_checkForLongClick(long now) {
+  if (longclick_detected_cb == BUTTON2_NULL) return;
+  if (longclick_reported) return;
+
+  // Long click detection timing calculation
+  // Cast to unsigned long to prevent overflow on AVR (16-bit unsigned int)
+  // Note: This function is only called when click_count == 1 (see _handlePress).
+  // This design choice prevents ambiguity between multi-click sequences and long press.
+  // For example, during a double-click attempt, if the first click is held too long,
+  // it becomes a long click and the sequence ends. Subsequent clicks in a multi-click
+  // sequence do NOT trigger long click detection.
+  if (now - down_ms < ((unsigned long)longclick_time_ms * (longclick_counter + 1))) return;
+
+  // Handle retriggerable long clicks (for continuous long press detection)
+  if (!longclick_retriggerable) {
+    longclick_reported = true;
+  }
+  last_click_count = 1;
+  last_click_type = long_click;
+  longclick_counter++;
+  longclick_detected_cb(*this);
+  longclick_detected = true;
+}
+
+/////////////////////////////////////////////////////////////////
+
+uint8_t Button2::getLongClickCount() const {
+  return longclick_counter;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_reportClicks() {
+  // no click
+  if (click_count == 0) return;
+
+  last_click_count = click_count;
+
+  // single or long press
+  if (click_count == 1) {
+    // long press
+    if (longclick_detected) {
+      last_click_type = long_click;
+      if (long_cb != BUTTON2_NULL) long_cb(*this);
+      longclick_counter = 0;
+    // single click
+    } else {
+      last_click_type = single_click;
+      if (click_cb != BUTTON2_NULL) click_cb (*this);
+    }
+
+  // double click
+  } else if (click_count == 2) {
+      last_click_type = double_click;
+      if (double_cb != BUTTON2_NULL) double_cb(*this);
+
+  // triple or x-clicks
+  } else {
+      last_click_type = triple_click;
+      if (triple_cb != BUTTON2_NULL) triple_cb(*this);
+  }
+
+  was_pressed = true;
+  click_count = 0;
+  click_ms = 0;
+  longclick_detected = false;
+  longclick_reported = false;
+}
+
+/////////////////////////////////////////////////////////////////
+
+void Button2::_releasedNow(long now) {
+  down_time_ms = now - down_ms;
+
+  // Debouncing strategy (release edge): Reject presses that were
+  // shorter than debounce_time_ms. This filters out mechanical bounce
+  // on the release edge. Note: This is checked AFTER the release, whereas
+  // the press debounce is checked BEFORE the press event is triggered.
+  // This asymmetric approach provides robust debouncing on both edges.
+  if (down_time_ms < debounce_time_ms) return;
+
+  // trigger release
+  if (change_cb != BUTTON2_NULL) change_cb(*this);
+  if (released_cb != BUTTON2_NULL) released_cb(*this);
+  // trigger tap
+  if (tap_cb != BUTTON2_NULL) tap_cb(*this);
+  // was it a longclick? (precedes single / double / triple clicks)
+  if (down_time_ms >= longclick_time_ms) {
+    longclick_detected = true;
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+
+uint8_t Button2::_getState() const {
+  if (get_state_cb != BUTTON2_NULL) {
+    return get_state_cb();
+  } else {
+    return digitalRead(pin);
+  }
+}
+
+/////////////////////////////////////////////////////////////////
