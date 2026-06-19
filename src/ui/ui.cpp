@@ -390,6 +390,8 @@ void UI::Menu() {
 
     // === Menu Items ===
     spr.loadFont(Font1_14);
+    spr.setCursor(180, 2);
+    spr.print(SOFTWARE_VERSION);
     const uint8_t startY = 28;
     const uint8_t itemHeight = 24;
     for (uint8_t i = 0; i < MenuConfig::menuItemCount; i++) {
