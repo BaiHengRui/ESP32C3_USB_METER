@@ -15,6 +15,7 @@ uint8_t sample_mode = 0; //0: fast, 1: normal, 2: slow
 // float shuntVoltage_mV;
 // float busVoltage;
 int32_t nowTime(0), lastTime(0);
+int64_t nowTime_us(0), lastTime_us(0);
 
 bool HAL::INA22x_Init(){ 
     ina.begin(0x40);
@@ -35,7 +36,8 @@ bool HAL::INA22x_Init(){
 }
 
 void HAL::INA22x_GetData(INA22x_Data *data){
-    nowTime = millis();
+    // nowTime = millis();
+    nowTime_us = esp_timer_get_time();
     // shuntVoltage_mV = ina.readShuntVoltage()/1000;
     // busVoltage = ina.readBusVoltage();
     // data->voltage = fabs(busVoltage + shuntVoltage_mV);
@@ -51,14 +53,19 @@ void HAL::INA22x_GetData(INA22x_Data *data){
         data->energy_mWh = ina.readEnergy_mWh();
     #else
     //INA226实现 没有硬件累计功能，时间积分计算
+    //charge_mAh =  current(A) * Δt(h) = current(A) * Δt(s) / 3600
+    //energy_mWh = power(W) * Δt(h) = power(W) * Δt(s) / 3600
         data->temperature = Get_CPU_Temperature();
-        data->charge_mAh += (data->current * (nowTime - lastTime)) / (3600.0f * 1);
-        data->energy_mWh += (data->power * (nowTime - lastTime)) / (3600.0f * 1);
+        // data->charge_mAh += (data->current * (nowTime - lastTime)) / (3600.0f * 1);
+        // data->energy_mWh += (data->power * (nowTime - lastTime)) / (3600.0f * 1);
+        data->charge_mAh += (data->current * (nowTime_us - lastTime_us)) / (3600000000.0f);
+        data->energy_mWh += (data->power * (nowTime_us - lastTime_us)) / (3600000000.0f);
     #endif
     data->charge_Ah = data->charge_mAh / 1000.0f;
     data->energy_Wh = data->energy_mWh / 1000.0f;
     data->device_id = ina.readDeviceID();
-    lastTime = nowTime;
+    // lastTime = nowTime;
+    lastTime_us = nowTime_us;
 }
 
 void HAL::INA22x_SetConfig(uint8_t sample_mode){

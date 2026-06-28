@@ -21,7 +21,8 @@
 #define INA228_EN 1
 
 extern uint64_t SNID;
-extern int32_t nowTime, lastTime;
+extern int32_t nowTime, lastTime; //return value of millis() function, in milliseconds(ms)
+extern int64_t nowTime_us, lastTime_us; //return value of esp_timer_get_time() function, in microseconds(us)
 extern int32_t startTime;
 extern uint8_t nowApp,maxApp;
 extern bool graphPaused;    //VA曲线暂停标志
@@ -45,7 +46,7 @@ namespace HAL
         bool current_direction; // true for left, false for right
 
         uint16_t device_id;  // in device id
-        uint16_t status;  // status flags
+        uint16_t status = 0;  // status flags
     } INA22x_Data;
 
     #pragma pack(push, 1)
