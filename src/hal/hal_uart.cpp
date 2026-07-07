@@ -66,6 +66,7 @@ static void handle_sample(const String& param) {
     if (value >= 0 && value <= 2) {
         HAL::INA22x_SetConfig(value);
         HAL::Sys_NVS_Write("sample_mode", value);
+        sample_mode = value; // 同步全局变量
         const char* mode_str[] = {"0/Fast", "1/Normal", "2/Slow"};
         Serial.print("采样率已设置为: ");
         Serial.println(mode_str[value]);

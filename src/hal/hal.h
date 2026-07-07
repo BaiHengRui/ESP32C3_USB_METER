@@ -26,6 +26,15 @@ extern int64_t nowTime_us, lastTime_us; //return value of esp_timer_get_time() f
 extern int32_t startTime;
 extern uint8_t nowApp,maxApp;
 extern bool graphPaused;    //VA曲线暂停标志
+#define GRAPH_WIDTH 180     //曲线缓冲区宽度
+extern float voltageBuffer[GRAPH_WIDTH];   //电压曲线数据缓冲区
+extern float currentBuffer[GRAPH_WIDTH];   //电流曲线数据缓冲区
+extern int graphIndex;                     //曲线数据写入索引
+extern bool graphDataInitialized;          //曲线数据是否已初始化
+extern bool graphRangeInitialized;         //曲线量程是否已初始化
+extern float vDisplayMin, vDisplayMax, vHistoryMax;  //电压显示范围/历史最大值
+extern float iDisplayMin, iDisplayMax, iHistoryMax;  //电流显示范围/历史最大值
+extern float frozenVoltage, frozenCurrent;            //暂停时冻结的电压/电流值
 extern uint8_t defaultBrightness; //LCD亮度
 extern uint8_t defaultRotation;   //LCD旋转
 extern uint8_t sample_mode; //0: fast, 1: normal, 2: slow
@@ -103,6 +112,8 @@ namespace HAL
     void LCD_SetTextColor(uint16_t color);
     void LCD_Refresh_Screen(uint32_t bgcolor);
     float Get_FPS();
+    /* Graph */
+    void Update_Graph_Data();
 } // namespace HAL
 
 // AppState命名空间 定义应用代号

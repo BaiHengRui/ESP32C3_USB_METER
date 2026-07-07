@@ -7,16 +7,6 @@
 #include "../assets/imgs/arrow_left.h"  //W:20px H:20px
 #include "../assets/imgs/arrow_right.h" //W:20px H:20px
 
-constexpr int GRAPH_WIDTH = 180; // 3/4 of 240
-float voltageBuffer[GRAPH_WIDTH] = {0};
-float currentBuffer[GRAPH_WIDTH] = {0};
-int graphIndex = 0;
-bool graphDataInitialized = false;
-float vDisplayMin = 0.0f, vDisplayMax = 5.0f, vHistoryMax = 0.0f; // initial guess
-float iDisplayMin = 0.0f, iDisplayMax = 2.0f, iHistoryMax = 0.0f;
-bool graphRangeInitialized = false;
-bool graphPaused = false;
-
 void UI::ShowMain(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     spr.setTextDatum(CC_DATUM); //设置文字对齐方式为居中
@@ -125,56 +115,6 @@ void UI::ShowMain(){
 }
 
 void UI::WaveGraph() {
-    // Static state variables (persist between calls)
-    static bool wasPaused = false;          // Previous pause state
-    static float frozenVoltage = 0.0f;      // Frozen V when paused
-    static float frozenCurrent = 0.0f;      // Frozen I when paused
-
-    float newVoltage = INA.voltage;
-    float newCurrent = INA.current;
-
-    // --- Detect rising edge of pause: freeze current values ---
-    if (!wasPaused && graphPaused) {
-        frozenVoltage = newVoltage;
-        frozenCurrent = newCurrent;
-    }
-    wasPaused = graphPaused; // Update state memory
-
-    // --- Sampling (only when NOT paused) ---
-    if (!graphPaused) {
-        voltageBuffer[graphIndex] = newVoltage;
-        currentBuffer[graphIndex] = newCurrent;
-        graphIndex = (graphIndex + 1) % GRAPH_WIDTH;
-        graphDataInitialized = true;
-
-        //  更新最大值
-        if (newVoltage > vHistoryMax) vHistoryMax = newVoltage;
-        if (newCurrent > iHistoryMax) iHistoryMax = newCurrent;
-
-        // Sticky auto-scale: only expand, never shrink
-        const float marginFactor = 0.05f;
-
-        if (!graphRangeInitialized) {
-            vDisplayMin = 0.0f;
-            vDisplayMax = fmaxf(0.1f, newVoltage * (1.0f + marginFactor));
-            iDisplayMin = 0.0f;
-            iDisplayMax = fmaxf(0.1f, newCurrent * (1.0f + marginFactor));
-            graphRangeInitialized = true;
-        } else {
-            if (newVoltage > vDisplayMax) {
-                vDisplayMax = newVoltage * (1.0f + marginFactor);
-            }
-            if (newCurrent > iDisplayMax) {
-                iDisplayMax = newCurrent * (1.0f + marginFactor);
-            }
-            vDisplayMin = 0.0f;
-            iDisplayMin = 0.0f;
-        }
-
-        if (vDisplayMax <= vDisplayMin) vDisplayMax = vDisplayMin + 0.1f;
-        if (iDisplayMax <= iDisplayMin) iDisplayMax = iDisplayMin + 0.1f;
-    }
-
     // --- Start drawing ---
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     spr.fillScreen(0x0000);

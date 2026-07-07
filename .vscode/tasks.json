@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "C:\\Users\\bhr13\\.platformio\\penv\\Scripts\\platformio.exe run",
+			"group": "build"
+		},
+		{
+			"label": "Build",
+			"type": "shell",
+			"command": "C:\\Users\\bhr13\\.platformio\\penv\\Scripts\\platformio.exe run",
+			"group": "build"
+		}
+	]
+}

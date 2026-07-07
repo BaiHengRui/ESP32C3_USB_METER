@@ -7,11 +7,15 @@ TaskHandle_t xTaskINA = NULL;
 TaskHandle_t xTaskUART = NULL;
 TaskHandle_t xTaskAPP = NULL;
 TaskHandle_t xTaskButton = NULL;
+TaskHandle_t xTaskGraph = NULL;
+
+SemaphoreHandle_t xINADataMutex = nullptr;
 
 void Task_INA22x(void *pvParameters);
 void Task_UART_Command(void *pvParameters);
 void Task_APP_Run(void *pvParameters);
 void Task_Button_Click(void *pvParameters);
+void Task_Graph_Update(void *pvParameters);
 
 void setup() {
   // put your setup code here, to run once:
@@ -20,10 +24,11 @@ void setup() {
   HAL::INA22x_Init();
   HAL::LCD_Init();
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
-  xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 2048, NULL, 2, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
-  xTaskCreatePinnedToCore(Task_UART_Command, "Task_UART_Command", 4096, NULL, 1, &xTaskUART, 0);
+  xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 2048, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
+  xTaskCreatePinnedToCore(Task_UART_Command, "Task_UART_Command", 4096, NULL, 3, &xTaskUART, 0);
+  xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 2, &xTaskButton, 0);
+  xTaskCreatePinnedToCore(Task_Graph_Update, "Task_Graph_Update", 2048, NULL, 2, &xTaskGraph, 0);
   xTaskCreatePinnedToCore(Task_APP_Run, "Task_APP_Run", 4096, NULL, 1, &xTaskAPP, 0);
-  xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 1, &xTaskButton, 0);
   vTaskDelete(NULL); // Delete the default loop task since we will be using our own tasks for handling different functionalities
 }
 
@@ -69,5 +74,15 @@ void Task_Button_Click(void *pvParameters)
   {
     HAL::Button_Click();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
+  }
+}
+
+void Task_Graph_Update(void *pvParameters)
+{
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  while (1)
+  {
+    HAL::Update_Graph_Data();
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(30)); // delay for 30ms
   }
 }

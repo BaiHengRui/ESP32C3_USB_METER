@@ -55,6 +55,7 @@ namespace MenuConfig {
                 case 2: // Sample Rate
                     HAL::Sys_NVS_Write("sample_mode", tempSampleMode);
                     HAL::INA22x_SetConfig(tempSampleMode);
+                    sample_mode = tempSampleMode; // 同步全局变量
                     break;
             }
         }
