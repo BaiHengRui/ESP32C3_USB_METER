@@ -34,82 +34,163 @@ void HAL::Button_Click(){
 }
 
 void Key1Click(Button2& btn1) {
-    if (nowApp == AppState::MENU) {
-        switch (MenuConfig::currentMode) {
-            case MenuConfig::MODE_IDLE:
-                // 空闲模式短按左键：退出菜单
-                nowApp = AppState::MAIN;
-                break;
-            case MenuConfig::MODE_SELECT:
-                MenuConfig::SelectPrev();   // 上一项
-                break;
-            case MenuConfig::MODE_EDIT:
-                MenuConfig::AdjustValue(+1); // 增加
-                break;
+    // Rotation 1时，SW0物理在右侧 → 交换左右功能
+    bool isLeft = (currentRotation == 1) ? false : true;
+    if (isLeft) {
+        // === 左键逻辑 (原Key1Click) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    nowApp = AppState::MAIN;
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::SelectPrev();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::AdjustValue(-1);
+                    break;
+            }
+        } else {
+            nowApp = (nowApp + 1) % (maxApp + 1);
         }
     } else {
-        // 非菜单：切换应用
-        nowApp = (nowApp + 1) % (maxApp + 1);
+        // === 右键逻辑 (原Key2Click) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    MenuConfig::EnterSelectMode();
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::SelectNext();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::AdjustValue(+1);
+                    break;
+            }
+        } else if (nowApp == AppState::WAVEGRAPH) {
+            graphPaused = !graphPaused;
+        }
     }
-    //概率干扰曲线解析，故注释
-    // HAL::LOG_INFO("SW1 OnClick");
 }
 
 void Key2Click(Button2& btn2) {
-    if (nowApp == AppState::MENU) {
-        switch (MenuConfig::currentMode) {
-            case MenuConfig::MODE_IDLE:
-                // 空闲模式短按右键：无操作（可忽略）
-                break;
-            case MenuConfig::MODE_SELECT:
-                MenuConfig::SelectNext();   // 下一项
-                break;
-            case MenuConfig::MODE_EDIT:
-                MenuConfig::AdjustValue(-1); // 减少
-                break;
+    // Rotation 1时，SW1物理在左侧 → 交换左右功能
+    bool isLeft = (currentRotation == 1) ? true : false;
+    if (isLeft) {
+        // === 左键逻辑 (原Key1Click) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    nowApp = AppState::MAIN;
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::SelectPrev();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::AdjustValue(-1);
+                    break;
+            }
+        } else {
+            nowApp = (nowApp + 1) % (maxApp + 1);
         }
-    } else if (nowApp == AppState::WAVEGRAPH) {
-        graphPaused = !graphPaused;
+    } else {
+        // === 右键逻辑 (原Key2Click) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    MenuConfig::EnterSelectMode();
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::SelectNext();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::AdjustValue(+1);
+                    break;
+            }
+        } else if (nowApp == AppState::WAVEGRAPH) {
+            graphPaused = !graphPaused;
+        }
     }
-    // HAL::LOG_INFO("SW2 OnClick");
 }
 
 void Key1LongPress(Button2& btn1) {
-    if (nowApp == AppState::MENU) {
-        switch (MenuConfig::currentMode) {
-            case MenuConfig::MODE_IDLE:
-                // 空闲模式长按左键：无操作
-                break;
-            case MenuConfig::MODE_SELECT:
-                MenuConfig::ExitSelectMode(); // 返回空闲
-                break;
-            case MenuConfig::MODE_EDIT:
-                MenuConfig::ExitEditMode(false); // 不保存退出编辑
-                break;
+    // Rotation 1时，SW0物理在右侧 → 交换左右功能
+    bool isLeft = (currentRotation == 1) ? false : true;
+    if (isLeft) {
+        // === 左键长按逻辑 (原Key1LongPress) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::ExitSelectMode();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::ExitEditMode(false);
+                    break;
+            }
+        } else {
+            nowApp = AppState::MAIN;
         }
     } else {
-        nowApp = AppState::MAIN;
+        // === 右键长按逻辑 (原Key2LongPress) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    MenuConfig::EnterSelectMode();
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::EnterEditMode();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::ExitEditMode(true);
+                    break;
+            }
+        } else if (nowApp == AppState::WAVEGRAPH) {
+            graphPaused = !graphPaused;
+        } else if (nowApp == AppState::MAIN) {
+            nowApp = AppState::SYSTEM_INFO;
+        }
     }
-    // HAL::LOG_INFO("SW1 TimeOut");
 }
 
 void Key2LongPress(Button2& btn2) {
-    if (nowApp == AppState::MENU) {
-        switch (MenuConfig::currentMode) {
-            case MenuConfig::MODE_IDLE:
-                MenuConfig::EnterSelectMode(); // 空闲 → 选择
-                break;
-            case MenuConfig::MODE_SELECT:
-                MenuConfig::EnterEditMode();   // 选择 → 编辑
-                break;
-            case MenuConfig::MODE_EDIT:
-                MenuConfig::ExitEditMode(true); // 保存并退出编辑
-                break;
+    // Rotation 1时，SW1物理在左侧 → 交换左右功能
+    bool isLeft = (currentRotation == 1) ? true : false;
+    if (isLeft) {
+        // === 左键长按逻辑 (原Key1LongPress) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::ExitSelectMode();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::ExitEditMode(false);
+                    break;
+            }
+        } else {
+            nowApp = AppState::MAIN;
         }
-    } else if (nowApp == AppState::WAVEGRAPH) {
-        graphPaused = !graphPaused;
-    }else if (nowApp == AppState::MAIN) {
-        nowApp = AppState::SYSTEM_INFO;
+    } else {
+        // === 右键长按逻辑 (原Key2LongPress) ===
+        if (nowApp == AppState::MENU) {
+            switch (MenuConfig::currentMode) {
+                case MenuConfig::MODE_IDLE:
+                    MenuConfig::EnterSelectMode();
+                    break;
+                case MenuConfig::MODE_SELECT:
+                    MenuConfig::EnterEditMode();
+                    break;
+                case MenuConfig::MODE_EDIT:
+                    MenuConfig::ExitEditMode(true);
+                    break;
+            }
+        } else if (nowApp == AppState::WAVEGRAPH) {
+            graphPaused = !graphPaused;
+        } else if (nowApp == AppState::MAIN) {
+            nowApp = AppState::SYSTEM_INFO;
+        }
     }
-    // HAL::LOG_INFO("SW2 TimeOut");
 }

@@ -351,10 +351,10 @@ void UI::Menu() {
     // 根据模式显示不同的提示
     switch (MenuConfig::currentMode) {
         case MenuConfig::MODE_IDLE:
-            spr.print("L SW0:Next | L SW1:Select");          // L = Long
+            spr.print("L/SW0:Next | SW1:Select");          // L = Long
             break;
         case MenuConfig::MODE_SELECT:
-            spr.print("SW0↑ SW1↓ | L0:Back | L1:Edit");
+            spr.print("SW0↑ SW1↓ | L0:Back | L1:Select");
             break;
         case MenuConfig::MODE_EDIT:
             spr.print("SW0+ SW1- | L0:Cancel | L1:Save");

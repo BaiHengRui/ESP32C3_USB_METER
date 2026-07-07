@@ -37,6 +37,7 @@ extern float iDisplayMin, iDisplayMax, iHistoryMax;  //电流显示范围/历史
 extern float frozenVoltage, frozenCurrent;            //暂停时冻结的电压/电流值
 extern uint8_t defaultBrightness; //LCD亮度
 extern uint8_t defaultRotation;   //LCD旋转
+extern uint8_t currentRotation;   //当前LCD旋转(实时更新)
 extern uint8_t sample_mode; //0: fast, 1: normal, 2: slow
 
 // HAL命名空间 INA接口定义

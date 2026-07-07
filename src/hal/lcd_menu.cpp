@@ -81,8 +81,8 @@ namespace MenuConfig {
 
         switch (editItem) {
             case 0: // Brightness
-                tempBrightness += (delta > 0) ? 10 : -10;
-                if (tempBrightness < 10) tempBrightness = 10;
+                tempBrightness += (delta > 0) ? 5 : -5;
+                if (tempBrightness < 5) tempBrightness = 5;
                 if (tempBrightness > 100) tempBrightness = 100;
                 break;
             case 1: // Rotation (只能 1 或 3)
@@ -100,7 +100,7 @@ namespace MenuConfig {
     }
 
     const char* GetTitle(uint8_t index) {
-        static const char* titles[] = {"Brightness", "Rotation", "Sample Rate", "Exit"};
+        static const char* titles[] = {"Brightness", "Rotation", "Sample Rate", "Exit Main(Back)"};
         return (index < menuItemCount) ? titles[index] : "";
     }
 
@@ -112,7 +112,7 @@ namespace MenuConfig {
             // 显示临时值
             switch (index) {
                 case 0: sprintf(buffer, "%d%%", tempBrightness); break;
-                case 1: sprintf(buffer, "%d", tempRotation); break;
+                case 1: sprintf(buffer, "(%d)%s", tempRotation, tempRotation == 1 ? "Down" : "UP"); break;
                 case 2: sprintf(buffer, "%s", mode_str[tempSampleMode]); break;
                 default: break;
             }
@@ -126,7 +126,7 @@ namespace MenuConfig {
                 }
                 case 1: {
                     uint8_t v = HAL::Sys_NVS_Valid("rotation", 3, 3);
-                    sprintf(buffer, "%d", v);
+                    sprintf(buffer, "(%d)%s", v, v == 1 ? "Down" : "UP");
                     break;
                 }
                 case 2: {
