@@ -9,7 +9,7 @@ TaskHandle_t xTaskAPP = NULL;
 TaskHandle_t xTaskButton = NULL;
 TaskHandle_t xTaskGraph = NULL;
 
-SemaphoreHandle_t xINADataMutex = nullptr;
+// SemaphoreHandle_t xINADataMutex = nullptr;
 
 void Task_INA22x(void *pvParameters);
 void Task_UART_Command(void *pvParameters);

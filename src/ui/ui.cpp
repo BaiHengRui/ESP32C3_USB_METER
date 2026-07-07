@@ -147,6 +147,10 @@ void UI::WaveGraph() {
         int y = graphY + (row * (graphHeight - 1)) / gridRows;
         spr.drawLine(graphX, y, graphX + GRAPH_WIDTH - 1, y, gridColor);
     }
+    // --- Safety guard: prevent division by zero in Y mapping ---
+    if (vDisplayMax <= vDisplayMin) vDisplayMax = vDisplayMin + 0.1f;
+    if (iDisplayMax <= iDisplayMin) iDisplayMax = iDisplayMin + 0.1f;
+
     // --- Draw voltage curve ---
     for (int i = 1; i < GRAPH_WIDTH; i++) {
         int x1 = graphX + i - 1;
