@@ -16,7 +16,7 @@
 
 //Mojor,Minor,Patch
 #define SOFTWARE_VERSION "v1.1.18"
-#define HARDWARE_VERSION "v1.0.2"
+#define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
 
