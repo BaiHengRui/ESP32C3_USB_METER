@@ -241,18 +241,23 @@ void UI::WaveGraph() {
     // sprintf(buf, "%.1f", (iHistoryMax - iDisplayMax)/gridRows);
     // spr.drawString("A/d:" + String(buf), 130, 125);
     
+    // s/div indicator
+    spr.setTextDatum(CC_DATUM);
+    spr.setTextColor(0x8410); // Gray
+    spr.drawString("1.35s/d", 202, 15);
+
     // PAUSED indicator
     if (graphPaused) {
         spr.setTextDatum(CC_DATUM);
         spr.setTextColor(0xF800); // Red
         spr.drawString("PAUSED", 90, 67);
-        // spr.drawString("OF", 222, 25);
-        spr.drawString("OF", 192, 25);
+        // spr.drawString("OFF", 222, 30);
+        spr.drawString("OFF", 192, 30);
     }else{
         spr.setTextDatum(CC_DATUM);
         spr.setTextColor(0x07FF); // Cyan
-        // spr.drawString("ON", 222, 25);
-        spr.drawString("ON", 192, 25);
+        // spr.drawString("ON", 222, 30);
+        spr.drawString("ON", 192, 30);
     }
 
     spr.unloadFont();
@@ -334,7 +339,7 @@ void UI::Menu() {
 
     // === Menu Items ===
     spr.loadFont(Font1_14);
-    spr.setCursor(170, 2);
+    spr.setCursor(170, 10);
     spr.print(SOFTWARE_VERSION);
     const uint8_t startY = 28;
     const uint8_t itemHeight = 24;
