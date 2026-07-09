@@ -26,7 +26,7 @@ void setup() {
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
   xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 2048, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
   xTaskCreatePinnedToCore(Task_UART_Command, "Task_UART_Command", 4096, NULL, 3, &xTaskUART, 0);
-  xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 2, &xTaskButton, 0);
+  xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 4, &xTaskButton, 0); //Max priority for button click handling to ensure responsiveness
   xTaskCreatePinnedToCore(Task_Graph_Update, "Task_Graph_Update", 2048, NULL, 2, &xTaskGraph, 0);
   xTaskCreatePinnedToCore(Task_APP_Run, "Task_APP_Run", 4096, NULL, 1, &xTaskAPP, 0);
   vTaskDelete(NULL); // Delete the default loop task since we will be using our own tasks for handling different functionalities
@@ -42,6 +42,7 @@ void Task_INA22x(void *pvParameters)
   while (1)
   {
     HAL::INA22x_GetData(&INA);
+    taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
   }
 }
@@ -52,6 +53,7 @@ void Task_UART_Command(void *pvParameters)
   while (1)
   {
     HAL::UART_Command();
+    taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
   }
 }
@@ -63,6 +65,7 @@ void Task_APP_Run(void *pvParameters)
   {
     HAL::APP_Run();
     // HAL::Get_FPS();
+    taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(40)); // delay for 40ms, target 25 FPS for UI updates
   }
 }
@@ -73,6 +76,7 @@ void Task_Button_Click(void *pvParameters)
   while (1)
   {
     HAL::Button_Click();
+    taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms
   }
 }
@@ -83,6 +87,7 @@ void Task_Graph_Update(void *pvParameters)
   while (1)
   {
     HAL::Update_Graph_Data();
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(30)); // delay for 30ms
+    taskYIELD();
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
   }
 }
