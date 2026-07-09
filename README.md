@@ -1,6 +1,7 @@
 # 此项目是ESP32C3-METER电流表项目的软件部分
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/esp32c3-zhuo-mian-qi-xiang-zhan)
-## 上位机仓库 [ESP32C3-METER简易上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
+## 上位机仓库 [ESP32C3-METER-Host上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
+## HID底板开源平台 [ESP32C3-METER_HID扩展底板](https://oshwhub.com/bhr13151022/project_bidjtyiw)
 ## 代码较粗糙
 ## INA228库只支持Arduino环境，在工程的lib文件夹下
 
@@ -65,14 +66,14 @@ ESP32C3_USB_METER/
 ├── Task_APP_Run (40ms周期)
 │   └── UI渲染
 │       ├── MAIN        主界面(电压/电流/功率/能量/温度显示)
-│       ├── WAVEGRAPH   波形曲线图(仅绘制)
+│       ├── WAVEGRAPH   波形曲线图
 │       ├── MENU        设置菜单
 │       └── SYSTEM_INFO 系统信息
 │
 ├── Task_Graph_Update (30ms周期)
 │   └── 曲线数据采集
 │       ├── 采样电压/电流写入环形缓冲区
-│       ├── 自动量程(Sticky只扩不缩)
+│       ├── 自动量程
 │       └── 暂停/继续冻结当前值
 │
 └── Task_Button_Click (10ms周期)
