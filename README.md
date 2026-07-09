@@ -66,14 +66,14 @@ ESP32C3_USB_METER/
 ├── Task_APP_Run (40ms周期)
 │   └── UI渲染
 │       ├── MAIN        主界面(电压/电流/功率/能量/温度显示)
-│       ├── WAVEGRAPH   波形曲线图(仅绘制)
+│       ├── WAVEGRAPH   波形曲线图
 │       ├── MENU        设置菜单
 │       └── SYSTEM_INFO 系统信息
 │
 ├── Task_Graph_Update (30ms周期)
 │   └── 曲线数据采集
 │       ├── 采样电压/电流写入环形缓冲区
-│       ├── 自动量程(Sticky只扩不缩)
+│       ├── 自动量程
 │       └── 暂停/继续冻结当前值
 │
 └── Task_Button_Click (10ms周期)
