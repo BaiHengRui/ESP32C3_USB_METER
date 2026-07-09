@@ -1,6 +1,7 @@
 # 此项目是ESP32C3-METER电流表项目的软件部分
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/esp32c3-zhuo-mian-qi-xiang-zhan)
 ## 上位机仓库 [ESP32C3-METER简易上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
+## HID底板开源平台 [ESP32C3-METER_HID扩展底板](https://oshwhub.com/bhr13151022/project_bidjtyiw)
 ## 代码较粗糙
 ## INA228库只支持Arduino环境，在工程的lib文件夹下
 
