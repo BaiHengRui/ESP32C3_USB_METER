@@ -12,8 +12,6 @@
 HAL::INA22x_Data INA;
 
 uint8_t sample_mode = 0; //0: fast, 1: normal, 2: slow
-// float shuntVoltage_mV;
-// float busVoltage;
 int32_t nowTime(0), lastTime(0);
 int64_t nowTime_us(0), lastTime_us(0);
 
@@ -30,7 +28,7 @@ bool HAL::INA22x_Init(){
         //INA226无法设置寄存器精度
         ina.calibrate(0.005f,8); //5m ohm 最大期望电流8A
     #endif
-    HAL::INA22x_SetConfig(HAL::Sys_NVS_Valid("sample_mode", sample_mode, 2));
+    HAL::INA22x_SetConfig(sample_mode);
     HAL::LOG_INFO("INA Initialized.");
     return true;
 }

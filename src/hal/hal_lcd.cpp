@@ -16,11 +16,11 @@ void HAL::LCD_Init(){
     analogWrite(LCD_BL_PIN,0);
     spr.init();
     // spr.invertDisplay(1); //根据屏幕实际情况选择是否反色显示，去掉优化约5ms
-    currentRotation = HAL::Sys_NVS_Valid("rotation", defaultRotation, 3);
+    currentRotation = defaultRotation;
     tft.setRotation(currentRotation);
     // tft.setRotation(3); //只能在tft对象操作。0-3 1/3观看为横屏
     spr.setColorDepth(16); //设置颜色深度为16位
-    HAL::LCD_SetBrightness(HAL::Sys_NVS_Valid("light", defaultBrightness, 100, 1));
+    HAL::LCD_SetBrightness(defaultBrightness);
     HAL::LOG_INFO("LCD Initialized.");
     startTime = millis();
 }

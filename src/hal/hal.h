@@ -26,6 +26,13 @@ extern int64_t nowTime_us, lastTime_us; //return value of esp_timer_get_time() f
 extern int32_t startTime;
 extern uint8_t nowApp,maxApp;
 extern bool graphPaused;    //VA曲线暂停标志
+// 计时阈值
+extern uint32_t thrStartVMv;   // 起始电压阈值(mV), 0=无限制
+extern uint32_t thrStartIMa;   // 起始电流阈值(mA), 0=无限制
+extern uint32_t thrEndVMv;     // 结束电压阈值(mV), 0=无限制
+extern uint32_t thrEndIMa;     // 结束电流阈值(mA), 0=无限制
+extern bool thrTimingActive;   // 计时是否激活
+extern uint64_t thrElapsedUs;  // 已计时时间(us), 仅在计时停止后更新
 #define GRAPH_WIDTH 180     //曲线缓冲区宽度
 extern float voltageBuffer[GRAPH_WIDTH];   //电压曲线数据缓冲区
 extern float currentBuffer[GRAPH_WIDTH];   //电流曲线数据缓冲区
@@ -94,9 +101,14 @@ namespace HAL
     String Get_System_Status();
     float Get_CPU_Temperature();
     void APP_Run();
+    /* NVS */
+    void NVS_Init();
+    void NVS_Load();           // 从NVS加载所有设置
     uint8_t Sys_NVS_Valid(const char* key, uint8_t default_val, uint8_t max_val = 255, uint8_t min_val = 0);
     uint8_t Sys_NVS_Read(const char* key, uint8_t default_val);
     void Sys_NVS_Write(const char* key, uint8_t value);
+    uint32_t Sys_NVS_ReadUInt(const char* key, uint32_t default_val);
+    void Sys_NVS_WriteUInt(const char* key, uint32_t value);
     /* USB */
     void UART_Command();
     /* Button */
@@ -115,6 +127,9 @@ namespace HAL
     float Get_FPS();
     /* Graph */
     void Update_Graph_Data();
+    /* Threshold Timing */
+    void Threshold_Timing_Update();   // 计时阈值更新, 需要在INA数据刷新后调用
+    String Get_Threshold_Time();       // 获取格式化的阈值计时字符串
 } // namespace HAL
 
 // AppState命名空间 定义应用代号

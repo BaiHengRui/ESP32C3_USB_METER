@@ -10,7 +10,7 @@
   fillScreen(TFT_RED);
   writecommand(ST7789_SLPOUT);   // Sleep out
   // delay(120);
-  delay(3);
+  delay(5);
 
   writecommand(ST7789_NORON);    // Normal display mode on
 
@@ -31,7 +31,7 @@
   writecommand(ST7789_COLMOD);
   writedata(0x55);
   // delay(10);
-  delayMicroseconds(100);
+  delay(1);
 
   //--------------------------------ST7789V Frame rate setting----------------------------------//
   writecommand(ST7789_PORCTRL);
@@ -119,12 +119,12 @@
 
   end_tft_write();
   // delay(120);
-  delay(2);
+  delay(5);
   begin_tft_write();
 
   writecommand(ST7789_DISPON);    //Display on
   // delay(120);
-  delay(3);
+  delay(5);
 
 #ifdef TFT_BL
   // Turn on the back-light LED

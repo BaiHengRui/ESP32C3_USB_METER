@@ -16,13 +16,11 @@ float iDisplayMin = 0.0f, iDisplayMax = 2.0f, iHistoryMax = 0.0f;
 float frozenVoltage = 0.0f, frozenCurrent = 0.0f;
 bool graphPaused = false;
 
-Preferences Prefs;  // NVS Preferences object
-
 void HAL::Sys_Init(){
     // esp_task_wdt_init(10, false); //watch dog 5s time out
     Serial.begin(912600); // Serial Init
-    Prefs.begin("config", false); // NVS namespace "config", read-write mode
-    Serial.println("NVS Init!");
+    HAL::NVS_Init();
+    HAL::NVS_Load();
     // Wire.begin(I2C_SDA_PIN,I2C_SCL_PIN,400000); // I2C Init
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN); // I2C Init
     pinMode(LCD_BL_PIN, OUTPUT); // LCD Backlight Pin
@@ -36,15 +34,17 @@ void HAL::LOG_INFO(const String msg){
     Serial.println(msg);
 }
 
-String HAL::Get_System_RunTime(uint32_t ms){
-    uint32_t seconds = ms / 1000;
-    uint32_t minutes = seconds / 60;
-    uint32_t hours = minutes / 60;
+// Returns the system run time in the format "HH:MM:SS"
+// input parameter: esp_timer_get_time() return value in microseconds
+String HAL::Get_System_RunTime(uint32_t us){
+    uint64_t totalSec = us / 1000000;
+    uint32_t hours   = totalSec / 3600;
+    uint32_t minutes = (totalSec % 3600) / 60;
+    uint32_t seconds = totalSec % 60;
 
-    seconds %= 60;
-    minutes %= 60;
-    char buffer[9];
-    sprintf(buffer, "%02lu:%02lu:%02lu", hours, minutes, seconds);
+    // 扩容缓冲区，防止小时≥100溢出；改用snprintf防越界
+    char buffer[12];
+    snprintf(buffer, sizeof(buffer), "%02lu:%02lu:%02lu", hours, minutes, seconds);
     return String(buffer);
     // Returns a string in the format "HH:MM:SS"
 }
@@ -109,23 +109,6 @@ void HAL::APP_Run(){
     {
         nowApp = 0;
     }
-}
-
-uint8_t HAL::Sys_NVS_Valid(const char* key, uint8_t default_val, uint8_t max_val, uint8_t min_val) {
-    uint8_t value = Prefs.getUChar(key, default_val);
-    if (value > max_val || value < min_val) {
-        value = default_val;
-        Prefs.putUChar(key, value);  // 写入修正后的默认值
-    }
-    return value;
-}
-
-uint8_t HAL::Sys_NVS_Read(const char* key, uint8_t default_val) {
-    return Prefs.getUChar(key, default_val);
-}
-
-void HAL::Sys_NVS_Write(const char* key, uint8_t value) {
-    Prefs.putUChar(key, value);
 }
 
 void HAL::Update_Graph_Data() {

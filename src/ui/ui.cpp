@@ -98,8 +98,9 @@ void UI::ShowMain(){
     spr.print(INA.temperature, 2);
     spr.print(" ℃");
     spr.setCursor(168,115);
-    spr.print(HAL::Get_System_RunTime(millis()));
-    // System Alert Display
+    // 显示阈值计时
+    spr.print(HAL::Get_Threshold_Time());
+    // 显示系统状态
     spr.setCursor(190,67);
     spr.print(HAL::Get_System_Status());
     spr.unloadFont();
@@ -284,7 +285,7 @@ void UI::System_Info(){
     spr.print("  FPS:");
     spr.println(HAL::Get_FPS(),2);
     spr.print("  Runtime:");
-    spr.println(HAL::Get_System_RunTime(millis()));
+    spr.println(HAL::Get_System_RunTime(esp_timer_get_time()));
     spr.unloadFont();
 
     spr.pushSprite(0, 0);

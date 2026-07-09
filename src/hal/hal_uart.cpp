@@ -5,6 +5,9 @@ HAL::USB_CDC_Data USB_CDC_Data;
 static void handle_brightness(const String& param);
 static void handle_rotation(const String& param);
 static void handle_sample(const String& param);
+static void handle_set_start(const String& param);
+static void handle_set_end(const String& param);
+static void handle_threshold_show();
 static void handle_info();
 static void handle_restart();
 static void handle_help();
@@ -19,13 +22,16 @@ struct CommandEntry {
 
 // 静态映射表
 static const CommandEntry cmdTable[] = {
-    { "brightness:", handle_brightness, true },
-    { "rotation:",   handle_rotation,   true },
-    { "sample:",     handle_sample,     true },
-    { "info",        [](const String&){ handle_info(); }, false },
-    { "restart",     [](const String&){ handle_restart(); }, false },
-    { "help",        [](const String&){ handle_help(); }, false },
-    { "data",        [](const String&){ handle_data(); }, false },
+    { "brightness:",    handle_brightness,    true },
+    { "rotation:",      handle_rotation,      true },
+    { "sample:",        handle_sample,        true },
+    { "set_start=",     handle_set_start,    true },
+    { "set_end=",       handle_set_end,      true },
+    { "threshold",      [](const String&){ handle_threshold_show(); }, false },
+    { "info",           [](const String&){ handle_info(); }, false },
+    { "restart",        [](const String&){ handle_restart(); }, false },
+    { "help",           [](const String&){ handle_help(); }, false },
+    { "data",           [](const String&){ handle_data(); }, false },
 };
 static const int cmdCount = sizeof(cmdTable) / sizeof(cmdTable[0]);
 static void handle_brightness(const String& param) {
@@ -76,6 +82,57 @@ static void handle_sample(const String& param) {
     }
 }
 
+static void handle_set_start(const String& param) {
+    // 格式: <mV>,<mA>  例如: 48000,5000
+    String p = param;
+    p.replace("<", "");
+    p.replace(">", "");
+    int comma = p.indexOf(',');
+    uint32_t v = (comma > 0) ? (uint32_t)p.substring(0, comma).toInt() : (uint32_t)p.toInt();
+    uint32_t i = (comma > 0) ? (uint32_t)p.substring(comma + 1).toInt() : 0;
+
+    thrStartVMv = v;
+    thrStartIMa = i;
+    HAL::Sys_NVS_WriteUInt("thr_sv", v);
+    HAL::Sys_NVS_WriteUInt("thr_si", i);
+    thrTimingActive = false;
+    thrElapsedUs = 0;
+    Serial.printf("起始阈值: %u mV %s / %u mA %s (已保存)\n",
+        v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
+}
+
+static void handle_set_end(const String& param) {
+    // 格式: <mV>,<mA>  例如: 4200,100
+    String p = param;
+    p.replace("<", "");
+    p.replace(">", "");
+    int comma = p.indexOf(',');
+    uint32_t v = (comma > 0) ? (uint32_t)p.substring(0, comma).toInt() : (uint32_t)p.toInt();
+    uint32_t i = (comma > 0) ? (uint32_t)p.substring(comma + 1).toInt() : 0;
+
+    thrEndVMv = v;
+    thrEndIMa = i;
+    HAL::Sys_NVS_WriteUInt("thr_ev", v);
+    HAL::Sys_NVS_WriteUInt("thr_ei", i);
+    thrTimingActive = false;
+    thrElapsedUs = 0;
+    Serial.printf("结束阈值: %u mV %s / %u mA %s (已保存)\n",
+        v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
+}
+
+static void handle_threshold_show() {
+    Serial.println("====== 计时阈值设置 ======");
+    Serial.printf("起始电压: %u mV %s\n", thrStartVMv, thrStartVMv == 0 ? "(无限制)" : "");
+    Serial.printf("起始电流: %u mA %s\n", thrStartIMa, thrStartIMa == 0 ? "(无限制)" : "");
+    Serial.printf("结束电压: %u mV %s\n", thrEndVMv, thrEndVMv == 0 ? "(无限制)" : "");
+    Serial.printf("结束电流: %u mA %s\n", thrEndIMa, thrEndIMa == 0 ? "(无限制)" : "");
+    Serial.print("计时状态: ");
+    Serial.println(thrTimingActive ? "计时中" : "已停止");
+    Serial.print("计时结果: ");
+    Serial.println(HAL::Get_Threshold_Time());
+    Serial.println("==========================");
+}
+
 static void handle_info() {
     HAL::LOG_INFO("设备信息：");
     Serial.println("上电运行时间: " + String(HAL::Get_System_RunTime(millis())));
@@ -107,6 +164,9 @@ static void handle_help() {
     Serial.println("rotation:<0-3>      -设置屏幕方向(1/3)");
     Serial.println("sample:<0-2>        -设置采样率(0:Fast/1:Normal/2:Slow)");
     Serial.println("sample:<fast>/<normal>/<slow> -设置采样率");
+    Serial.println("set_start=<mV>,<mA> -起始阈值(电压mV,电流mA), 0=无限制");
+    Serial.println("set_end=<mV>,<mA>   -结束阈值(电压mV,电流mA), 0=无限制");
+    Serial.println("threshold           -查看当前阈值/计时状态");
     Serial.println("info                -设备信息");
     Serial.println("restart             -重启");
     Serial.println("data                -发送数据包");
