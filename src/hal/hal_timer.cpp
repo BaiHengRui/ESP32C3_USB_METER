@@ -14,15 +14,15 @@ void HAL::Threshold_Timing_Update() {
     uint32_t voltage_mV = (uint32_t)(INA.voltage * 1000.0f);  // V -> mV
     uint32_t current_mA = (uint32_t)(INA.current * 1000.0f);  // A -> mA
 
-    // 检查起始条件: 电压>起始电压阈值 OR 电流>起始电流阈值 (0=无限制)
+    // 检查起始条件: 电压>起始电压阈值 AND 电流>起始电流阈值 (0=无限制)
     bool startCondV = (thrStartVMv == 0) || (voltage_mV > thrStartVMv);
     bool startCondI = (thrStartIMa == 0) || (current_mA > thrStartIMa);
-    bool shouldStart = startCondV || startCondI;
+    bool shouldStart = startCondV && startCondI;
 
-    // 检查结束条件: 电压<结束电压阈值 OR 电流<结束电流阈值 (0=无限制则永不触发)
+    // 检查结束条件: 电压<结束电压阈值 AND 电流<结束电流阈值 (0=无限制则永不触发)
     bool endCondV = (thrEndVMv != 0) && (voltage_mV < thrEndVMv);
     bool endCondI = (thrEndIMa != 0) && (current_mA < thrEndIMa);
-    bool shouldStop = endCondV || endCondI;
+    bool shouldStop = endCondV && endCondI;
 
     if (!thrTimingActive && shouldStart) {
         // 开始计时 (不清零, 在上次累积基础上继续)
