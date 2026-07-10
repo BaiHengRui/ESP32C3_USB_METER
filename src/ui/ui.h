@@ -10,4 +10,5 @@ namespace UI
     void WaveGraph();
     void Menu();
     void DrawToast();
+    void TransitionTo(uint8_t oldApp, uint8_t newApp);
 } // namespace UI

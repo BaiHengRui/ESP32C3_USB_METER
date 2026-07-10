@@ -70,8 +70,25 @@ float HAL::Get_CPU_Temperature(){
 }
 
 void HAL::APP_Run(){
+    static uint8_t prevApp = 0xFF;  // 0xFF 表示首次渲染, 不触发过渡动画
+
     // 帧间安全应用待处理的屏幕方向切换 (避免 pushSprite 中途改 MADCTL 导致花屏/反色)
     HAL::ApplyPendingRotation();
+
+    // 防止最大app溢出
+    if (nowApp > maxApp)
+    {
+        nowApp = 0;
+    }
+
+    // 页面切换时触发过渡动画 (跳过首次渲染)
+    if (nowApp != prevApp && prevApp != 0xFF) {
+        UI::TransitionTo(prevApp, nowApp);
+        prevApp = nowApp;
+        return;
+    }
+
+    prevApp = nowApp;
 
     switch (nowApp)
     {
@@ -90,12 +107,6 @@ void HAL::APP_Run(){
     default:
     UI::ShowMain();
         break;
-    }
-
-    //防止最大app溢出
-    if (nowApp > maxApp)
-    {
-        nowApp = 0;
     }
 }
 
