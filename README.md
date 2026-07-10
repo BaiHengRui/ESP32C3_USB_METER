@@ -1,4 +1,6 @@
 # 此项目是ESP32C3-METER电流表项目的软件部分
+> ⚠️ **此分支为 UI 美化版本** — 新增页面切换从左到右滑动过渡动画。稳定版请见 [`main`](https://github.com/BaiHengRui/ESP32C3_USB_METER/tree/main) 分支。
+
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/project_gfxgdvkn)
 ## 上位机仓库 [ESP32C3-METER-Host上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
 ## HID底板开源平台 [ESP32C3-METER_HID扩展底板](https://oshwhub.com/bhr13151022/project_bidjtyiw)
