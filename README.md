@@ -54,6 +54,31 @@ ESP32C3_USB_METER/
     ├── t_lcd_menu.h/cpp     # LCD 菜单测试
     └── wave.cpp             # 波形测试
 ```
+
+## 分支说明
+
+| 分支 | 说明 |
+|---|---|
+| `main` | 主分支，稳定版本，**不含** UI 过渡动画 |
+| `feature/ui-transition` | 基于 `main`，新增页面切换从左到右滑动过渡动画 |
+
+> 切换分支：`git checkout feature/ui-transition`
+
+## 编译资源占用
+
+### `main` 分支
+```
+RAM:   [=         ]   5.8% (used 19116 bytes from 327680 bytes)
+Flash: [===       ]  30.9% (used 607188 bytes from 1966080 bytes)
+```
+
+### `feature/ui-transition` 分支
+```
+RAM:   [=         ]   5.8% (used 19116 bytes from 327680 bytes)
+Flash: [===       ]  30.9% (used 607186 bytes from 1966080 bytes)
+```
+
+> 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
 ## 功能流程顺序
 ### 系统初始化
 ```
