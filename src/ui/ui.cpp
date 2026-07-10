@@ -111,7 +111,11 @@ static void _DrawMainContent() {
     spr.print(HAL::Get_System_Status());
     spr.unloadFont();
 
-    spr.pushImage(166,64,20,20, INA.current_direction ? arrow_right : arrow_left); //电流方向箭头 1方向
+    if(tft.getRotation() == 1){
+        spr.pushImage(166,64,20,20, INA.current_direction ? arrow_right : arrow_left); //电流方向箭头 1方向
+    }else{
+        spr.pushImage(166,64,20,20, INA.current_direction ? arrow_left : arrow_right); //电流方向箭头 默认3方向
+    }
 }
 
 // ============================================================
