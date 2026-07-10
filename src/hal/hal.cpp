@@ -1,21 +1,6 @@
 #include "hal.h"
 #include "../ui/ui.h"
 
-uint64_t SNID(0);
-int32_t startTime(0);
-uint8_t nowApp(0),maxApp(3);
-
-// Graph curve data buffers
-float voltageBuffer[GRAPH_WIDTH] = {0};
-float currentBuffer[GRAPH_WIDTH] = {0};
-int graphIndex = 0;
-bool graphDataInitialized = false;
-bool graphRangeInitialized = false;
-float vDisplayMin = 0.0f, vDisplayMax = 5.0f, vHistoryMax = 0.0f;
-float iDisplayMin = 0.0f, iDisplayMax = 2.0f, iHistoryMax = 0.0f;
-float frozenVoltage = 0.0f, frozenCurrent = 0.0f;
-bool graphPaused = false;
-
 void HAL::Sys_Init(){
     // esp_task_wdt_init(10, false); //watch dog 5s time out
     Serial.begin(912600); // Serial Init
@@ -85,6 +70,9 @@ float HAL::Get_CPU_Temperature(){
 }
 
 void HAL::APP_Run(){
+    // 帧间安全应用待处理的屏幕方向切换 (避免 pushSprite 中途改 MADCTL 导致花屏/反色)
+    HAL::ApplyPendingRotation();
+
     switch (nowApp)
     {
     case AppState::MAIN:
@@ -158,4 +146,23 @@ void HAL::Update_Graph_Data() {
         if (vDisplayMax <= vDisplayMin) vDisplayMax = vDisplayMin + 0.1f;
         if (iDisplayMax <= iDisplayMin) iDisplayMax = iDisplayMin + 0.1f;
     }
+}
+
+void HAL::ShowToast(const char* msg) {
+    strncpy(toastMessage, msg, sizeof(toastMessage) - 1);
+    toastMessage[sizeof(toastMessage) - 1] = '\0';
+    toastStartTime = millis();
+}
+
+bool HAL::IsToastActive() {
+    return (millis() - toastStartTime < TOAST_DURATION_MS) && (toastMessage[0] != '\0');
+}
+
+void HAL::ApplyPendingRotation() {
+    if (pendingRotation < 0) return;
+    uint8_t rot = (uint8_t)pendingRotation;
+    pendingRotation = -1;
+    // 在帧间安全切换, 不会与 pushSprite 的 SPI 传输冲突
+    tft.setRotation(rot);
+    currentRotation = rot;
 }

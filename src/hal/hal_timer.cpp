@@ -1,12 +1,5 @@
 #include "hal.h"
 
-// 计时阈值变量
-uint32_t thrStartVMv = 0;      // 起始电压阈值(mV), 0=无限制
-uint32_t thrStartIMa = 0;      // 起始电流阈值(mA), 0=无限制
-uint32_t thrEndVMv = 0;        // 结束电压阈值(mV), 0=无限制
-uint32_t thrEndIMa = 0;        // 结束电流阈值(mA), 0=无限制
-bool thrTimingActive = false;  // 计时是否激活
-uint64_t thrElapsedUs = 0;     // 已计时时间(us)
 static uint64_t thrStartTimeUs = 0;  // 计时开始时刻(us)
 
 // 计时阈值更新, 需要在INA数据刷新后调用

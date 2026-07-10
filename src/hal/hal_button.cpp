@@ -6,6 +6,8 @@ void Key1Click(Button2&btn1);
 void Key2Click(Button2&btn2);
 void Key1LongPress(Button2& btn1);
 void Key2LongPress(Button2& btn2);
+void Key2DoubleClick(Button2& btn2);
+void Key1DoubleClick(Button2& btn1);
 
 Button2 btn1;
 Button2 btn2;
@@ -26,6 +28,8 @@ void HAL::Button_Init(){
     btn2.setClickHandler(Key2Click);
     btn1.setLongClickDetectedHandler(Key1LongPress);
     btn2.setLongClickDetectedHandler(Key2LongPress);
+    btn1.setDoubleClickHandler(Key1DoubleClick);
+    btn2.setDoubleClickHandler(Key2DoubleClick);
 }
 
 void HAL::Button_Click(){
@@ -151,6 +155,37 @@ void Key1LongPress(Button2& btn1) {
         } else if (nowApp == AppState::MAIN) {
             nowApp = AppState::SYSTEM_INFO;
         }
+    }
+}
+
+void Key1DoubleClick(Button2& btn1) {
+    // 双击SW0循环切换采样率 (0→1→2→0)
+    sample_mode = (sample_mode + 1) % 3;
+    HAL::Sys_NVS_Write("sample_mode", sample_mode);
+    HAL::INA22x_SetConfig(sample_mode);
+    // 显示 Toast
+    const char* modeNames[] = {"Fast", "Normal", "Slow"};
+    char msg[32];
+    snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
+    HAL::ShowToast(msg);
+    // 如果当前在菜单编辑模式下且正在编辑Sample Rate项，同步临时值
+    if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 2) {
+        MenuConfig::tempSampleMode = sample_mode;
+    }
+}
+
+void Key2DoubleClick(Button2& btn2) {
+    // 双击SW1切换屏幕方向 (1 ↔ 3)
+    // 不直接调 LCD_SetRotation, 而是设 pendingRotation
+    // 由 APP_Run 在帧间安全切换, 避免 pushSprite 中途改 MADCTL 导致花屏/反色
+    uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
+    HAL::Sys_NVS_Write("rotation", newRotation);
+    pendingRotation = newRotation;
+    // 显示 Toast
+    HAL::ShowToast(newRotation == 1 ? "Rotation: DOWN" : "Rotation: UP");
+    // 如果当前在菜单编辑模式下且正在编辑Rotation项，同步临时值
+    if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 1) {
+        MenuConfig::tempRotation = newRotation;
     }
 }
 

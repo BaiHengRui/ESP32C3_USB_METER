@@ -2,12 +2,9 @@
 #include "hal.h"
 #include "hal_lcd.h"
 
-TFT_eSPI tft = TFT_eSPI(TFT_WIDTH,TFT_HEIGHT); //WIDTH, HEIGHT
+TFT_eSPI tft = TFT_eSPI(TFT_WIDTH,TFT_HEIGHT);
 TFT_eSprite spr = TFT_eSprite(&tft);
 
-uint8_t defaultBrightness = 50; //默认亮度
-uint8_t defaultRotation = 3;   //默认旋转
-uint8_t currentRotation = 3;   //当前旋转
 unsigned long lastFPSTime = 0;
 unsigned int frameCount = 0;
 float currentFPS = 0;

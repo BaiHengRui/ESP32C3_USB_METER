@@ -9,12 +9,6 @@
 #endif
 // INA228 ina(Wire);
 
-HAL::INA22x_Data INA;
-
-uint8_t sample_mode = 0; //0: fast, 1: normal, 2: slow
-int32_t nowTime(0), lastTime(0);
-int64_t nowTime_us(0), lastTime_us(0);
-
 bool HAL::INA22x_Init(){ 
     ina.begin(0x40);
     // Rshunt = 0.005 ohm, max expected current = 8A, then ADC range should be set to ±40.96mV to maximize resolution (LSB = 78.125µV)

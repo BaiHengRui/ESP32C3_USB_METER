@@ -111,6 +111,7 @@ void UI::ShowMain(){
         spr.pushImage(166,64,20,20, INA.current_direction ? arrow_left : arrow_right); //电流方向箭头 默认3方向
     }
 
+    UI::DrawToast();
     spr.pushSprite(0, 0);
     spr.deleteSprite();
 }
@@ -126,6 +127,7 @@ void UI::WaveGraph() {
         spr.setTextDatum(CC_DATUM);
         spr.drawString("Sampling...", 120, 67);
         spr.unloadFont();
+        UI::DrawToast();
         spr.pushSprite(0, 0);
         spr.deleteSprite();
         return;
@@ -253,7 +255,7 @@ void UI::WaveGraph() {
         spr.setTextColor(0xF800); // Red
         spr.drawString("PAUSED", 90, 67);
         // spr.drawString("OFF", 222, 30);
-        spr.drawString("OFF", 192, 30);
+        spr.drawString("OFF", 195, 30);
     }else{
         spr.setTextDatum(CC_DATUM);
         spr.setTextColor(0x07FF); // Cyan
@@ -262,6 +264,7 @@ void UI::WaveGraph() {
     }
 
     spr.unloadFont();
+    UI::DrawToast();
     spr.pushSprite(0, 0);
     spr.deleteSprite();
 }
@@ -288,6 +291,7 @@ void UI::System_Info(){
     spr.println(HAL::Get_System_RunTime(esp_timer_get_time()));
     spr.unloadFont();
 
+    UI::DrawToast();
     spr.pushSprite(0, 0);
     spr.deleteSprite();
 }
@@ -368,6 +372,28 @@ void UI::Menu() {
     }
     spr.unloadFont();
 
+    UI::DrawToast();
     spr.pushSprite(0, 0);
     spr.deleteSprite();
+}
+
+// Toast 通知绘制
+void UI::DrawToast() {
+    if (!HAL::IsToastActive()) return;
+
+    spr.loadFont(Font1_14);
+    spr.setTextDatum(MC_DATUM);
+
+    int textW = spr.textWidth(toastMessage);
+    int boxW = textW + 24;
+    int boxH = 26;
+    int boxX = (spr.width() - boxW) / 2;
+    int boxY = spr.height() - boxH - 8;
+
+    spr.fillRoundRect(boxX, boxY, boxW, boxH, 8, 0x3186);
+    spr.drawRoundRect(boxX, boxY, boxW, boxH, 8, 0xCE59);
+    spr.setTextColor(0xFFFF);
+    spr.drawString(toastMessage, spr.width() / 2, boxY + boxH / 2);
+
+    spr.unloadFont();
 }

@@ -9,4 +9,5 @@ namespace UI
     void System_Info();
     void WaveGraph();
     void Menu();
+    void DrawToast();
 } // namespace UI

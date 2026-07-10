@@ -8,138 +8,124 @@
 #include <Preferences.h>
 #include <Wire.h>
 
-#define I2C_SDA_PIN 7
-#define I2C_SCL_PIN 6
-#define LCD_BL_PIN 0
-#define BUTTON_SW0 9 //复用启动引脚
-#define BUTTON_SW1 10
+// 硬件引脚
+#define I2C_SDA_PIN  7
+#define I2C_SCL_PIN  6
+#define LCD_BL_PIN   0
+#define BUTTON_SW0   9   // 复用启动引脚
+#define BUTTON_SW1   10
 
-//Mojor,Minor,Patch
-#define SOFTWARE_VERSION "v1.2.0"
+// 软件版本号 & 硬件版本号
+// v Major.Minor.Patch
+#define SOFTWARE_VERSION "v1.3.0"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
 
-extern uint64_t SNID;
-extern int32_t nowTime, lastTime; //return value of millis() function, in milliseconds(ms)
-extern int64_t nowTime_us, lastTime_us; //return value of esp_timer_get_time() function, in microseconds(us)
-extern int32_t startTime;
-extern uint8_t nowApp,maxApp;
-extern bool graphPaused;    //VA曲线暂停标志
-// 计时阈值
-extern uint32_t thrStartVMv;   // 起始电压阈值(mV), 0=无限制
-extern uint32_t thrStartIMa;   // 起始电流阈值(mA), 0=无限制
-extern uint32_t thrEndVMv;     // 结束电压阈值(mV), 0=无限制
-extern uint32_t thrEndIMa;     // 结束电流阈值(mA), 0=无限制
-extern bool thrTimingActive;   // 计时是否激活
-extern uint64_t thrElapsedUs;  // 已计时时间(us), 仅在计时停止后更新
-#define GRAPH_WIDTH 180     //曲线缓冲区宽度
-extern float voltageBuffer[GRAPH_WIDTH];   //电压曲线数据缓冲区
-extern float currentBuffer[GRAPH_WIDTH];   //电流曲线数据缓冲区
-extern int graphIndex;                     //曲线数据写入索引
-extern bool graphDataInitialized;          //曲线数据是否已初始化
-extern bool graphRangeInitialized;         //曲线量程是否已初始化
-extern float vDisplayMin, vDisplayMax, vHistoryMax;  //电压显示范围/历史最大值
-extern float iDisplayMin, iDisplayMax, iHistoryMax;  //电流显示范围/历史最大值
-extern float frozenVoltage, frozenCurrent;            //暂停时冻结的电压/电流值
-extern uint8_t defaultBrightness; //LCD亮度
-extern uint8_t defaultRotation;   //LCD旋转
-extern uint8_t currentRotation;   //当前LCD旋转(实时更新)
-extern uint8_t sample_mode; //0: fast, 1: normal, 2: slow
-
-// HAL命名空间 INA接口定义
+// HAL 数据类型
 namespace HAL
 {
     typedef struct
     {
-        float voltage;       // in Volts
-        float current;       // in Amperes
-        float power;         // in Watts
-        float energy_mWh;        // in Watt-hours
-        float charge_mAh;        // in Ampere-hours
-        float energy_Wh;         // in Watt-hours
-        float charge_Ah;         // in Ampere-hours
-        float temperature;       // in Die-temperature
-        bool current_direction; // true for left, false for right
-
-        uint16_t device_id;  // in device id
-        uint16_t status = 0;  // status flags
+        float    voltage;
+        float    current;
+        float    power;
+        float    energy_mWh;
+        float    charge_mAh;
+        float    energy_Wh;
+        float    charge_Ah;
+        float    temperature;
+        bool     current_direction;   // true=left, false=right
+        uint16_t device_id;
+        uint16_t status;
     } INA22x_Data;
 
     #pragma pack(push, 1)
     typedef struct
     {
-        uint8_t header;        // Packet header (0xAA)
-        uint8_t pack_length;   // Total packet length (including header and checksum)
-        uint32_t snid;          // Device serial number
-        char sw_version[12];    // Software version string, fixed length 12 bytes(max: "v255.255.25\0")
-        char hw_version[12];    // Hardware version string, fixed length 12 bytes(max: "v255.255.25\0")
-        float voltage;       // in Volts
-        float current;       // in Amperes
-        float power;         // in Watts
-        float energy_mWh;        // in Watt-hours
-        float charge_mAh;        // in Ampere-hours
-        // float energy_Wh;         // in Watt-hours
-        // float charge_Ah;         // in Ampere-hours
-        float temperature;       // in Die-temperature
-        uint64_t time_ms;       // in milliseconds since device start
-        bool current_direction; // true for left, false for right
-        // char status[16];       // Status string, fixed length 16 bytes (e.g., "OV/C!", "OV!", "OC!", "LV!", "RDY")
-        uint8_t checksum;       // Simple checksum XOR of all previous bytes
+        uint8_t  header;
+        uint8_t  pack_length;
+        uint32_t snid;
+        char     sw_version[12];
+        char     hw_version[12];
+        float    voltage;
+        float    current;
+        float    power;
+        float    energy_mWh;
+        float    charge_mAh;
+        float    temperature;
+        uint64_t time_ms;
+        bool     current_direction;
+        uint8_t  checksum;
     } USB_CDC_Data;
-    //Totoal size: 1+1+4+12+12+4*5+8+1=64 bytes
     #pragma pack(pop)
 }
 
-//HAL命名空间 UI和功能接口定义
+// ============================================================
+// HAL 功能接口
+// ============================================================
 namespace HAL
 {
     /* System */
-    void Sys_Init();
-    void LOG_INFO(const String msg);
+    void   Sys_Init();
+    void   LOG_INFO(const String msg);
     String Get_System_RunTime(uint32_t ms);
     String Get_System_Status();
-    float Get_CPU_Temperature();
-    void APP_Run();
+    float  Get_CPU_Temperature();
+    void   APP_Run();
+
     /* NVS */
-    void NVS_Init();
-    void NVS_Load();           // 从NVS加载所有设置
-    uint8_t Sys_NVS_Valid(const char* key, uint8_t default_val, uint8_t max_val = 255, uint8_t min_val = 0);
-    uint8_t Sys_NVS_Read(const char* key, uint8_t default_val);
-    void Sys_NVS_Write(const char* key, uint8_t value);
+    void     NVS_Init();
+    void     NVS_Load();
+    uint8_t  Sys_NVS_Valid(const char* key, uint8_t default_val, uint8_t max_val = 255, uint8_t min_val = 0);
+    uint8_t  Sys_NVS_Read(const char* key, uint8_t default_val);
+    void     Sys_NVS_Write(const char* key, uint8_t value);
     uint32_t Sys_NVS_ReadUInt(const char* key, uint32_t default_val);
-    void Sys_NVS_WriteUInt(const char* key, uint32_t value);
+    void     Sys_NVS_WriteUInt(const char* key, uint32_t value);
+
     /* USB */
     void UART_Command();
+
     /* Button */
     void Button_Init();
     void Button_Click();
+
     /* INA */
     bool INA22x_Init();
     void INA22x_GetData(INA22x_Data *data);
     void INA22x_SetConfig(uint8_t sample_mode);
+
     /* LCD */
-    void LCD_Init();
-    void LCD_SetBrightness(uint8_t brightness);
-    void LCD_SetRotation(uint8_t rotation);
-    void LCD_SetTextColor(uint16_t color);
-    void LCD_Refresh_Screen(uint32_t bgcolor);
+    void  LCD_Init();
+    void  LCD_SetBrightness(uint8_t brightness);
+    void  LCD_SetRotation(uint8_t rotation);
+    void  LCD_SetTextColor(uint16_t color);
+    void  LCD_Refresh_Screen(uint32_t bgcolor);
     float Get_FPS();
+
     /* Graph */
     void Update_Graph_Data();
+
     /* Threshold Timing */
-    void Threshold_Timing_Update();   // 计时阈值更新, 需要在INA数据刷新后调用
-    String Get_Threshold_Time();       // 获取格式化的阈值计时字符串
+    void   Threshold_Timing_Update();
+    String Get_Threshold_Time();
+
+    /* Safe Rotation (帧间切换，避免 SPI 竞态) */
+    void ApplyPendingRotation();
 } // namespace HAL
 
-// AppState命名空间 定义应用代号
+// ============================================================
+// 应用状态枚举
+// ============================================================
 namespace AppState
 {
-    constexpr uint8_t MAIN = 0;
-    constexpr uint8_t WAVEGRAPH = 1;
-    constexpr uint8_t MENU = 2;
+    constexpr uint8_t MAIN        = 0;
+    constexpr uint8_t WAVEGRAPH   = 1;
+    constexpr uint8_t MENU        = 2;
     constexpr uint8_t SYSTEM_INFO = 3;
+}
 
-} // namespace AppState
-
-extern HAL::INA22x_Data INA;
+// ============================================================
+// 子模块
+// ============================================================
+#include "globals.h"
