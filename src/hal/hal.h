@@ -16,7 +16,7 @@
 #define BUTTON_SW1   10
 
 // 软件版本号 & 硬件版本号
-// v Major.Minor.Patch
+// v Major.Minor.Patch(-branch)
 #define SOFTWARE_VERSION "v1.3.0-UI"
 #define HARDWARE_VERSION "v1.0.5"
 
