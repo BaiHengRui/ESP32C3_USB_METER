@@ -35,32 +35,53 @@ String HAL::Get_System_RunTime(uint32_t us){
 }
 
 String HAL::Get_System_Status(){
-    const float OVP = 49.0f; //48V for PD3.1 max voltage(48V-5A)
+    const float OVP = 50.0f; //48V for PD3.1 max voltage(48V-5A)
     const float OCP = 8.0f; //8A for 40.96mV shunt range
     const float LVP = 4.2f; //4.2V for DC-DC buck converter under-voltage lockout
-    
-    if (INA.voltage >= OVP && INA.current >= OCP)
-    {
-        HAL::LCD_SetTextColor(0xF800); // RED
-        return "OV/C!";
+    const float OTP = 60.0f; //60*C Tepmerature max for safe and reliable operation
+    const uint32_t showDelay = 1000; // 1000ms for alternating display of multiple alerts
+
+    // Evaluate all conditions independently
+    bool ov_c = (INA.voltage >= OVP && INA.current >= OCP);
+    bool hot  = (INA.temperature >= OTP || HAL::Get_CPU_Temperature() >= OTP);
+    bool ov   = (INA.voltage >= OVP && !ov_c);
+    bool oc   = (INA.current >= OCP && !ov_c);
+    bool lv   = (INA.voltage <= LVP && !oc);
+
+    // Collect triggered states (priority order: most dangerous first)
+    struct Alert { const char* msg; uint16_t color; };
+    Alert alerts[5];
+    int count = 0;
+    if (ov_c) alerts[count++] = {"OV/C!", 0xF800};
+    if (hot)  alerts[count++] = {"HOT!",  0xF800};
+    if (ov)   alerts[count++] = {"OV !",  0xF800};
+    if (oc)   alerts[count++] = {"OC !",  0xF800};
+    if (lv)   alerts[count++] = {"LV !",  0xFFE0};
+
+    // No fault: all clear
+    if (count == 0) {
+        HAL::LCD_SetTextColor(0x0400); // GREEN
+        return "RDY";
     }
-    if (INA.voltage >= OVP && INA.current < OCP)
-    {
-        HAL::LCD_SetTextColor(0xF800);
-        return "OV !";
+
+    // Single fault: display directly
+    if (count == 1) {
+        HAL::LCD_SetTextColor(alerts[0].color);
+        return alerts[0].msg;
     }
-    if (INA.voltage < OVP && INA.current >= OCP)
-    {
-        HAL::LCD_SetTextColor(0xF800);
-        return "OC !";
+
+    // Multiple faults: alternate display every ~showDelay
+    static uint32_t lastSwitch = 0;
+    static uint8_t  altIdx     = 0;
+    if (millis() - lastSwitch > showDelay) {
+        lastSwitch = millis();
+        altIdx = (altIdx + 1) % count;
+    } else {
+        altIdx = altIdx % count; // keep in range if count changed
     }
-    if (INA.voltage <= LVP && INA.current < OCP)
-    {
-        HAL::LCD_SetTextColor(0xFFE0); //YELLOW
-        return "LV !";
-    }
-    HAL::LCD_SetTextColor(0x0400); //GREEN
-    return "RDY";
+
+    HAL::LCD_SetTextColor(alerts[altIdx].color);
+    return alerts[altIdx].msg;
 }
 
 float HAL::Get_CPU_Temperature(){
