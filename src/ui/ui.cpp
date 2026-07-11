@@ -1,3 +1,6 @@
+// This file is ui-transition.cpp
+// only used for UI transition branch
+
 #include "ui.h"
 #include "../hal/hal_lcd.h"
 #include "../assets/fonts/Font1_12.h"   //MiSans-Demibold(EN)
