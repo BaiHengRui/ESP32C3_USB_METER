@@ -44,7 +44,7 @@ void Task_INA22x(void *pvParameters)
     HAL::INA22x_GetData(&INA);
     HAL::Threshold_Timing_Update();  // 更新计时阈值状态
     taskYIELD();
-    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(5)); // delay for 5ms
   }
 }
 
