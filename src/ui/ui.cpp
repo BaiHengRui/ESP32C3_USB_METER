@@ -13,10 +13,7 @@
 // 菜单首次进入标记 (模块作用域, 供 Menu() 和 TransitionTo 共用)
 static bool menuFirstEntry = true;
 
-// ============================================================
 // 内部绘制辅助函数 — 仅绘制到 spr, 不管理 sprite 生命周期
-// ============================================================
-
 static void _DrawMainContent() {
     spr.setTextDatum(CC_DATUM);
     spr.fillScreen(0x0000);
@@ -121,10 +118,7 @@ static void _DrawMainContent() {
     }
 }
 
-// ============================================================
 // 公共 UI 函数
-// ============================================================
-
 void UI::ShowMain(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     _DrawMainContent();
@@ -278,6 +272,7 @@ static bool _DrawWaveGraphContent() {
     return true;
 }
 
+// 绘制波形图页面
 void UI::WaveGraph() {
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     spr.fillScreen(0x0000);
@@ -287,6 +282,7 @@ void UI::WaveGraph() {
     spr.deleteSprite();
 }
 
+// 绘制系统信息页面
 static void _DrawSystemInfoContent() {
     spr.setTextDatum(CC_DATUM);
     spr.fillScreen(0x0000);
@@ -309,6 +305,7 @@ static void _DrawSystemInfoContent() {
     spr.unloadFont();
 }
 
+// 绘制系统信息页面
 void UI::System_Info(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     _DrawSystemInfoContent();
@@ -317,6 +314,7 @@ void UI::System_Info(){
     spr.deleteSprite();
 }
 
+// 绘制菜单项
 void RenderMenuItem(uint8_t index, int yPos) {
     bool isSelected = (MenuConfig::currentMode != MenuConfig::MODE_IDLE) && (index == MenuConfig::selectedIndex);
     uint16_t textColor = isSelected ? MenuColors::TEXT_SELECTED : MenuColors::TEXT_PRIMARY;
@@ -343,6 +341,7 @@ void RenderMenuItem(uint8_t index, int yPos) {
     }
 }
 
+// 绘制菜单页面内容到 spr
 static void _DrawMenuContent() {
     spr.fillScreen(MenuColors::BACKGROUND);
 
@@ -387,6 +386,7 @@ static void _DrawMenuContent() {
     spr.unloadFont();
 }
 
+// 绘制菜单页面
 void UI::Menu() {
     if (menuFirstEntry) {
         menuFirstEntry = false;
@@ -400,9 +400,7 @@ void UI::Menu() {
     spr.deleteSprite();
 }
 
-// ============================================================
 // 页面绘制调度器 — 将指定页面内容绘制到 spr
-// ============================================================
 static void _DrawPageContent(uint8_t app) {
     switch (app) {
         case AppState::MAIN:
@@ -424,10 +422,8 @@ static void _DrawPageContent(uint8_t app) {
     }
 }
 
-// ============================================================
 // 页面切换过渡动画 — 旧页左滑出 + 新页右滑入, 双页同时可见
 // Famers: 8, Delay: 5ms Total: 40ms = FreeRTOS Task Delay
-// ============================================================
 void UI::TransitionTo(uint8_t oldApp, uint8_t newApp) {
     const int steps = 8;              // 动画帧数
     const int stepDelay = 5;          // 每帧间隔 (ms)
