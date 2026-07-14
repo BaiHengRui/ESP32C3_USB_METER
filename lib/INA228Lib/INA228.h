@@ -161,6 +161,14 @@ public:
     bool isMathOverflow();
     bool isConversionReady();
     bool isAlert();
+    bool isEnergyOverflow();
+    bool isChargeOverflow();
+    bool isTempOverLimit();
+    bool isShuntOverLimit();
+    bool isShuntUnderLimit();
+    bool isBusOverLimit();
+    bool isBusUnderLimit();
+    bool isPowerOverLimit();
 
     // Threshold limits (simplified: set threshold in volts/amps/°C/watts)
     bool setShuntOverVoltageLimit(float voltage);

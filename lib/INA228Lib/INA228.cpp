@@ -58,13 +58,10 @@ bool INA228::configure(ina228_averages_t avg, ina228_convTime_t busConvTime,
         return false;
     }
 
-    // Configure CONFIG register (0x00)
-    // Default: ADC range = 0 (±163.84mV), no reset, no conversion delay
-    uint16_t config = 0;
-    // Leave CONFIG at default: ADCRANGE=0, TEMPCOMP=0, CONVDLY=0
-    if (!writeRegister16(INA228_REG_CONFIG, config)) {
-        return false;
-    }
+    // NOTE: CONFIG register (0x00) is NOT configured here.
+    // ADCRANGE is set by calibrate()/setADCRange(), TEMPCOMP by
+    // enableTemperatureCompensation(), CONVDLY/RST/RSTACC by their own functions.
+    // Writing CONFIG here would overwrite those settings.
 
     return true;
 }
@@ -74,7 +71,7 @@ bool INA228::calibrate(float rShuntValue, float iMaxCurrentExpected, ina228_adc_
 
     // Calculate Current_LSB based on maximum expected current
     // Current_LSB = MaxCurrent / 2^19 (from datasheet section 8.1.2)
-    currentLSB = iMaxCurrentExpected * 1.9073486328125e-6f;
+    currentLSB = iMaxCurrentExpected / 524288.0f;
 
     // Calculate Power_LSB
     // Power_LSB = 3.2 * Current_LSB (from datasheet section 8.1.4)
@@ -94,23 +91,24 @@ bool INA228::calibrate(float rShuntValue, float iMaxCurrentExpected, ina228_adc_
         return false;
     }
 
-    // Calculate SHUNT_CAL register value
-    // SHUNT_CAL = 13107.2e6 * Current_LSB * R_shunt (from datasheet section 8.1.2)
-    float shuntCal = 13107.2e6f * currentLSB * rShunt;
-    // Unknown factor of four (from datasheet section 8.1.2)
-    // When ADCRANGE = 1, multiply by 4
-    // But multiply by 4 can;t read the right current adn power value
-    
-    // if (adcRange == ADC_RANGE_40_96mV) {
-    //     shuntCal *= 4.0f;
-    // }
+    // Calculate SHUNT_CAL register value according to the datasheet section 8.1.2.
+    // SHUNT_CAL = 13107.2e6 * Current_LSB * Rshunt  (for ADCRANGE = 0)
+    // For ADCRANGE = 1, SHUNT_CAL must be multiplied by 4.
+    // This value must stay within the 16-bit register range (0x0000..0x7FFF).
+    float shuntCalFloat = 13107.2e6f * currentLSB * rShunt;
 
-    // Check SHUNT_CAL overflow (16-bit register, max value 65535)
-    if (shuntCal > 65535.0f) {
+    // Apply ×4 multiplier for ADCRANGE = 1 (±40.96mV range)
+    if (selectedRange == ADC_RANGE_40_96mV) {
+        shuntCalFloat *= 4.0f;
+    }
+
+    uint32_t shuntCal = (uint32_t)(shuntCalFloat + 0.5f);
+
+    if (shuntCal > 0x7FFFu) {
         return false;
     }
 
-    return writeRegister16(INA228_REG_SHUNT_CAL, (uint16_t)shuntCal);
+    return writeRegister16(INA228_REG_SHUNT_CAL, (uint16_t)(shuntCal & 0x7FFF));
 }
 
 bool INA228::setMode(ina228_mode_t mode) {
@@ -187,9 +185,10 @@ float INA228::readPower() {
 
 // Read temperature in degrees Celsius
 // Formula: T = raw_value * 7.8125 m°C (from datasheet section 8.1.3)
+// Range: -256°C to +256°C (limited to -40°C to +125°C by package)
 float INA228::readTemperature() {
-    // Read 16-bit register
-    uint16_t value = readRegister16(INA228_REG_DIETEMP);
+    // Read 16-bit register as signed (two's complement) to support negative temperatures
+    int16_t value = (int16_t)readRegister16(INA228_REG_DIETEMP);
 
     // Temperature LSB = 7.8125 m°C = 0.0078125 °C
     float temp_LSB = 7.8125e-3f;
@@ -307,92 +306,153 @@ bool INA228::isMathOverflow() {
     return (diag & (1 << 9)) != 0;
 }
 
-// Check if conversion is ready
+// Check if conversion is ready (CNVRF bit 1)
 bool INA228::isConversionReady() {
     uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
-    return (diag & (1 << 14)) != 0;
+    return (diag & (1 << 1)) != 0;
 }
 
-// Check if alert is triggered
+// Check if any threshold alert is triggered
 bool INA228::isAlert() {
     uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
-    // Check if any alert bit is set (bits 0-11)
-    return (diag & 0x0FFF) != 0;
+    // Check threshold alert flags: TMPOL(7), SHNTOL(6), SHNTUL(5), BUSOL(4), BUSUL(3), POL(2)
+    return (diag & 0x00FC) != 0;
+}
+
+// Check energy overflow flag (ENERGYOF bit 11)
+bool INA228::isEnergyOverflow() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 11)) != 0;
+}
+
+// Check charge overflow flag (CHARGEOF bit 10)
+bool INA228::isChargeOverflow() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 10)) != 0;
+}
+
+// Check temperature over-limit flag (TMPOL bit 7)
+bool INA228::isTempOverLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 7)) != 0;
+}
+
+// Check shunt over-limit flag (SHNTOL bit 6)
+bool INA228::isShuntOverLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 6)) != 0;
+}
+
+// Check shunt under-limit flag (SHNTUL bit 5)
+bool INA228::isShuntUnderLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 5)) != 0;
+}
+
+// Check bus over-limit flag (BUSOL bit 4)
+bool INA228::isBusOverLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 4)) != 0;
+}
+
+// Check bus under-limit flag (BUSUL bit 3)
+bool INA228::isBusUnderLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 3)) != 0;
+}
+
+// Check power over-limit flag (POL bit 2)
+bool INA228::isPowerOverLimit() {
+    uint16_t diag = readRegister16(INA228_REG_DIAG_ALRT);
+    return (diag & (1 << 2)) != 0;
 }
 
 // Threshold limit functions
 
-// Set shunt overvoltage limit in volts
-// Formula: Threshold = voltage / LSB (LSB depends on ADCRANGE)
+// Set shunt overvoltage threshold in volts
+// Formula: Threshold = voltage / LSB (from datasheet section 7.6.1.13)
+// LSB = 5 µV when ADCRANGE=0, 1.25 µV when ADCRANGE=1
 bool INA228::setShuntOverVoltageLimit(float voltage) {
     uint16_t config = readConfig();
     bool adcRange = (config >> 4) & 0x01;
 
-    uint32_t threshold;
+    int32_t threshold;
     if (adcRange) {
-        // ADCRANGE = 1: LSB = 78.125 nV
-        threshold = (uint32_t)(voltage / 78.125e-9f);
+        // ADCRANGE = 1: LSB = 1.25 µV
+        threshold = (int32_t)(voltage / 1.25e-6f);
     } else {
-        // ADCRANGE = 0: LSB = 312.5 nV
-        threshold = (uint32_t)(voltage / 312.5e-9f);
+        // ADCRANGE = 0: LSB = 5 µV
+        threshold = (int32_t)(voltage / 5.0e-6f);
     }
 
-    // Limit to 20-bit value
-    if (threshold > 0xFFFFF) threshold = 0xFFFFF;
+    // Clamp to 16-bit signed range
+    if (threshold > 32767) threshold = 32767;
+    if (threshold < -32768) threshold = -32768;
 
     return writeRegister16(INA228_REG_SOVL, (uint16_t)threshold);
 }
 
-// Set shunt undervoltage limit in volts
+// Set shunt undervoltage threshold in volts
+// Formula: Threshold = voltage / LSB (from datasheet section 7.6.1.14)
+// LSB = 5 µV when ADCRANGE=0, 1.25 µV when ADCRANGE=1
 bool INA228::setShuntUnderVoltageLimit(float voltage) {
     uint16_t config = readConfig();
     bool adcRange = (config >> 4) & 0x01;
 
-    uint32_t threshold;
+    int32_t threshold;
     if (adcRange) {
-        threshold = (uint32_t)(voltage / 78.125e-9f);
+        // ADCRANGE = 1: LSB = 1.25 µV
+        threshold = (int32_t)(voltage / 1.25e-6f);
     } else {
-        threshold = (uint32_t)(voltage / 312.5e-9f);
+        // ADCRANGE = 0: LSB = 5 µV
+        threshold = (int32_t)(voltage / 5.0e-6f);
     }
 
-    if (threshold > 0xFFFFF) threshold = 0xFFFFF;
+    // Clamp to 16-bit signed range
+    if (threshold > 32767) threshold = 32767;
+    if (threshold < -32768) threshold = -32768;
 
     return writeRegister16(INA228_REG_SUVL, (uint16_t)threshold);
 }
 
-// Set bus overvoltage limit in volts
-// Formula: Threshold = voltage / 195.3125 μV
+// Set bus overvoltage threshold in volts
+// Formula: Threshold = voltage / 3.125 mV (from datasheet section 7.6.1.15)
 bool INA228::setBusOverVoltageLimit(float voltage) {
-    uint32_t threshold = (uint32_t)(voltage / 195.3125e-6f);
+    uint32_t threshold = (uint32_t)(voltage / 3.125e-3f);
 
-    if (threshold > 0xFFFFF) threshold = 0xFFFFF;
+    // BOVL is 15-bit (bit 15 reserved), max value 0x7FFF
+    if (threshold > 0x7FFF) threshold = 0x7FFF;
 
     return writeRegister16(INA228_REG_BOVL, (uint16_t)threshold);
 }
 
-// Set bus undervoltage limit in volts
+// Set bus undervoltage threshold in volts
+// Formula: Threshold = voltage / 3.125 mV (from datasheet section 7.6.1.16)
 bool INA228::setBusUnderVoltageLimit(float voltage) {
-    uint32_t threshold = (uint32_t)(voltage / 195.3125e-6f);
+    uint32_t threshold = (uint32_t)(voltage / 3.125e-3f);
 
-    if (threshold > 0xFFFFF) threshold = 0xFFFFF;
+    // BUVL is 15-bit (bit 15 reserved), max value 0x7FFF
+    if (threshold > 0x7FFF) threshold = 0x7FFF;
 
     return writeRegister16(INA228_REG_BUVL, (uint16_t)threshold);
 }
 
 // Set temperature limit in degrees Celsius
-// Formula: Threshold = temperature / 7.8125 m°C
+// Formula: Threshold = temperature / 7.8125 m°C (from datasheet section 7.6.1.17)
 bool INA228::setTemperatureLimit(float celsius) {
-    uint16_t threshold = (uint16_t)(celsius / 7.8125e-3f);
+    int16_t threshold = (int16_t)(celsius / 7.8125e-3f);
 
-    return writeRegister16(INA228_REG_TEMP_LIMIT, threshold);
+    return writeRegister16(INA228_REG_TEMP_LIMIT, (uint16_t)threshold);
 }
 
 // Set power limit in watts
-// Formula: Threshold = watts / (3.2 * Current_LSB)
+// Formula: Threshold = watts / (256 * Power_LSB) = watts / (256 * 3.2 * Current_LSB)
+// (from datasheet section 7.6.1.18)
 bool INA228::setPowerLimit(float watts) {
-    uint32_t threshold = (uint32_t)(watts / (3.2f * currentLSB));
+    uint32_t threshold = (uint32_t)(watts / (256.0f * 3.2f * currentLSB));
 
-    if (threshold > 0xFFFFF) threshold = 0xFFFFF;
+    // PWR_LIMIT is 16-bit unsigned, max 0xFFFF
+    if (threshold > 0xFFFF) threshold = 0xFFFF;
 
     return writeRegister16(INA228_REG_PWR_LIMIT, (uint16_t)threshold);
 }
