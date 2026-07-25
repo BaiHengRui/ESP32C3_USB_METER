@@ -1,12 +1,10 @@
-# ESP32C3 USB METER ![SW](https://img.shields.io/badge/SW-v2.0.0-blue) ![HW](https://img.shields.io/badge/HW-v1.0.5-green)
+# ESP32C3 USB METER
 
 此项目是 ESP32C3-METER 电流表项目的软件部分。
 
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/project_gfxgdvkn)
 ## 上位机仓库 [ESP32C3-METER-Host上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
 ## HID底板开源平台 [ESP32C3-METER_HID扩展底板](https://oshwhub.com/bhr13151022/project_bidjtyiw)
-## 代码较粗糙
-## INA228库只支持Arduino环境，在工程的lib文件夹下
 
 ### 默认设置
     亮度 50
