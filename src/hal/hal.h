@@ -40,6 +40,21 @@ namespace HAL
         uint16_t status;
     } INA22x_Data;
 
+    // typedef struct
+    // {
+    //     float pd_voltage;
+    //     float pd_current;
+    //     float pd_power;
+    //     bool pd_ready;
+    //     bool pd_connected;
+    //     bool pd_is_pps;
+    //     uint8_t pd_cc_pin;
+    //     uint8_t pd_pos;
+    //     uint8_t pd_pdo_count;
+    //     uint32_t pd_packet_count;
+    //     char pd_msg[20];
+    // } PDO_Data;
+
     #pragma pack(push, 1)
     typedef struct
     {
@@ -58,6 +73,7 @@ namespace HAL
         uint8_t  checksum;
     } USB_CDC_Data;
     #pragma pack(pop)
+    // total size: 1+1+4+4+4+4+4+4+4+8+1+1 = 40 bytes
 }
 
 // ============================================================
@@ -84,6 +100,11 @@ namespace HAL
 
     /* USB */
     void UART_Command();
+
+    /* PD */
+    // void PD_Init();
+    // void PD_GetData(PDO_Data *data);
+    // String PD_Protocol();
 
     /* Button */
     void Button_Init();

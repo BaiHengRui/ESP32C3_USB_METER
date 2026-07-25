@@ -1,95 +1,101 @@
 #include "hal.h"
+#include <cstring>
+#include <cstdlib>
 
 HAL::USB_CDC_Data USB_CDC_Data;
 
-static void handle_brightness(const String& param);
-static void handle_rotation(const String& param);
-static void handle_sample(const String& param);
-static void handle_set_start(const String& param);
-static void handle_set_end(const String& param);
-static void handle_threshold_show();
-static void handle_info();
-static void handle_restart();
-static void handle_help();
-static void handle_data();
+// ============================================================
+// 命令处理函数（参数用 const char*，零堆分配）
+// ============================================================
+static void handle_brightness(const char* param);
+static void handle_rotation(const char* param);
+static void handle_sample(const char* param);
+static void handle_set_start(const char* param);
+static void handle_set_end(const char* param);
+static void handle_threshold_show(const char* param);
+static void handle_info(const char* param);
+static void handle_restart(const char* param);
+static void handle_help(const char* param);
+static void handle_data(const char* param);
 
-// 命令映射表项
-struct CommandEntry {
-    const char* cmd;          // 命令字符串，如 "brightness"
-    void (*handler)(const String&); // 处理函数，参数为冒号后面的内容（若无参数则传入空串）
-    bool has_param;           // 是否需要参数
+// ============================================================
+// 命令映射表
+// ============================================================
+struct CmdEntry {
+    const char* name;
+    void (*handler)(const char*);
+    bool has_param;
 };
 
-// 静态映射表
-static const CommandEntry cmdTable[] = {
-    { "brightness:",    handle_brightness,    true },
-    { "rotation:",      handle_rotation,      true },
-    { "sample:",        handle_sample,        true },
-    { "set_start=",     handle_set_start,    true },
-    { "set_end=",       handle_set_end,      true },
-    { "threshold",      [](const String&){ handle_threshold_show(); }, false },
-    { "info",           [](const String&){ handle_info(); }, false },
-    { "restart",        [](const String&){ handle_restart(); }, false },
-    { "help",           [](const String&){ handle_help(); }, false },
-    { "data",           [](const String&){ handle_data(); }, false },
+static const CmdEntry cmdTable[] = {
+    { "brightness:", handle_brightness,    true  },
+    { "rotation:",   handle_rotation,      true  },
+    { "sample:",     handle_sample,        true  },
+    { "set_start=",  handle_set_start,     true  },
+    { "set_end=",    handle_set_end,       true  },
+    { "threshold",   handle_threshold_show,false },
+    { "info",        handle_info,          false },
+    { "restart",     handle_restart,       false },
+    { "help",        handle_help,          false },
+    { "data",        handle_data,          false },
 };
 static const int cmdCount = sizeof(cmdTable) / sizeof(cmdTable[0]);
-static void handle_brightness(const String& param) {
-    int value = param.toInt();
+
+// ============================================================
+// 命令处理实现
+// ============================================================
+static void handle_brightness(const char* param) {
+    int value = atoi(param);
     if (value >= 1 && value <= 100) {
         HAL::LCD_SetBrightness(value);
-        Serial.print("亮度已设置为: ");
-        Serial.println(value);
+        Serial.printf("亮度已设置为: %d\n设置已保存\n", value);
         HAL::Sys_NVS_Write("light", value);
-        Serial.print("设置已保存");
     } else {
         Serial.println("错误: 亮度值必须为1-100");
     }
 }
 
-static void handle_rotation(const String& param) {
-    int value = param.toInt();
+static void handle_rotation(const char* param) {
+    int value = atoi(param);
     if (value >= 0 && value <= 3) {
         HAL::LCD_SetRotation(value);
-        Serial.print("屏幕方向已设置为: ");
-        Serial.println(value);
+        Serial.printf("屏幕方向已设置为: %d\n设置已保存\n", value);
         HAL::Sys_NVS_Write("rotation", value);
-        Serial.println("设置已保存");
     } else {
-        Serial.println("错误: 屏幕方向值必须为1/3");
+        Serial.println("错误: 屏幕方向值必须为0-3");
     }
 }
 
-static void handle_sample(const String& param) {
-    String p = param;
-    p.trim();
+static void handle_sample(const char* param) {
+    // 跳过前导空格
+    while (*param == ' ') param++;
+
     int value = -1;
-    if (p.equalsIgnoreCase("fast") || p.equals("0")) value = 0;
-    else if (p.equalsIgnoreCase("normal") || p.equals("1")) value = 1;
-    else if (p.equalsIgnoreCase("slow") || p.equals("2")) value = 2;
-    else value = p.toInt();
+    if ((param[0] == 'f' || param[0] == 'F') && strcmp(param + 1, "ast") == 0)      value = 0;
+    else if ((param[0] == 'n' || param[0] == 'N') && strcmp(param + 1, "ormal") == 0) value = 1;
+    else if ((param[0] == 's' || param[0] == 'S') && strcmp(param + 1, "low") == 0)   value = 2;
+    else if (strcmp(param, "0") == 0) value = 0;
+    else if (strcmp(param, "1") == 0) value = 1;
+    else if (strcmp(param, "2") == 0) value = 2;
+    else value = atoi(param);
 
     if (value >= 0 && value <= 2) {
         HAL::INA22x_SetConfig(value);
         HAL::Sys_NVS_Write("sample_mode", value);
-        sample_mode = value; // 同步全局变量
+        sample_mode = value;
         const char* mode_str[] = {"0/Fast", "1/Normal", "2/Slow"};
-        Serial.print("采样率已设置为: ");
-        Serial.println(mode_str[value]);
-        Serial.println("设置已保存");
+        Serial.printf("采样率已设置为: %s\n设置已保存\n", mode_str[value]);
     } else {
         Serial.println("错误: 采样率值必须为 0(Fast)/1(Normal)/2(Slow) 或 fast/normal/slow");
     }
 }
 
-static void handle_set_start(const String& param) {
+static void handle_set_start(const char* param) {
     // 格式: <mV>,<mA>  例如: 48000,5000
-    String p = param;
-    p.replace("<", "");
-    p.replace(">", "");
-    int comma = p.indexOf(',');
-    uint32_t v = (comma > 0) ? (uint32_t)p.substring(0, comma).toInt() : (uint32_t)p.toInt();
-    uint32_t i = (comma > 0) ? (uint32_t)p.substring(comma + 1).toInt() : 0;
+    while (*param == '<' || *param == ' ') param++;
+    const char* comma = strchr(param, ',');
+    uint32_t v = (uint32_t)atoi(param);
+    uint32_t i = comma ? (uint32_t)atoi(comma + 1) : 0;
 
     thrStartVMv = v;
     thrStartIMa = i;
@@ -101,14 +107,12 @@ static void handle_set_start(const String& param) {
         v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
 }
 
-static void handle_set_end(const String& param) {
+static void handle_set_end(const char* param) {
     // 格式: <mV>,<mA>  例如: 4200,100
-    String p = param;
-    p.replace("<", "");
-    p.replace(">", "");
-    int comma = p.indexOf(',');
-    uint32_t v = (comma > 0) ? (uint32_t)p.substring(0, comma).toInt() : (uint32_t)p.toInt();
-    uint32_t i = (comma > 0) ? (uint32_t)p.substring(comma + 1).toInt() : 0;
+    while (*param == '<' || *param == ' ') param++;
+    const char* comma = strchr(param, ',');
+    uint32_t v = (uint32_t)atoi(param);
+    uint32_t i = comma ? (uint32_t)atoi(comma + 1) : 0;
 
     thrEndVMv = v;
     thrEndIMa = i;
@@ -120,7 +124,8 @@ static void handle_set_end(const String& param) {
         v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
 }
 
-static void handle_threshold_show() {
+static void handle_threshold_show(const char* param) {
+    (void)param;
     Serial.println("====== 计时阈值设置 ======");
     Serial.printf("起始电压: %u mV %s\n", thrStartVMv, thrStartVMv == 0 ? "(无限制)" : "");
     Serial.printf("起始电流: %u mA %s\n", thrStartIMa, thrStartIMa == 0 ? "(无限制)" : "");
@@ -133,31 +138,34 @@ static void handle_threshold_show() {
     Serial.println("==========================");
 }
 
-static void handle_info() {
+static void handle_info(const char* param) {
+    (void)param;
     HAL::LOG_INFO("设备信息：");
-    Serial.println("上电运行时间: " + String(HAL::Get_System_RunTime(millis())));
-    Serial.println("上电启动时间: " + String(startTime));
-    Serial.println("CPU温度: " + String(HAL::Get_CPU_Temperature()));
-    Serial.println("可用RAM: " + String(ESP.getFreeHeap()));
-    Serial.println("SDK版本: " + String(ESP.getSdkVersion()));
-    Serial.println("HW: " + String(HARDWARE_VERSION));
-    Serial.println("SW: " + String(SOFTWARE_VERSION));
-    Serial.println("SN ID: " + String(SNID,HEX));
-    Serial.println("Sketch MD5: " + String(ESP.getSketchMD5()));
-    Serial.println("状态: " + String(HAL::Get_System_Status()));
-    Serial.println("屏幕亮度: " + String(HAL::Sys_NVS_Read("light", defaultBrightness)));
+    Serial.printf("上电运行时间: %s\n", HAL::Get_System_RunTime(millis()).c_str());
+    Serial.printf("上电启动时间: %d\n", startTime);
+    Serial.printf("CPU温度: %.1f\n", HAL::Get_CPU_Temperature());
+    Serial.printf("可用RAM: %d\n", ESP.getFreeHeap());
+    Serial.printf("SDK版本: %s\n", ESP.getSdkVersion());
+    Serial.printf("HW: %s\n", HARDWARE_VERSION);
+    Serial.printf("SW: %s\n", SOFTWARE_VERSION);
+    Serial.printf("SN ID: %08X\n", (uint32_t)SNID);
+    Serial.printf("Sketch MD5: %s\n", ESP.getSketchMD5().c_str());
+    Serial.printf("状态: %s\n", HAL::Get_System_Status().c_str());
+    Serial.printf("屏幕亮度: %d\n", HAL::Sys_NVS_Read("light", defaultBrightness));
     uint8_t current_sample = HAL::Sys_NVS_Read("sample_mode", sample_mode);
     if (current_sample > 2) current_sample = 0;
     const char* sample_str[] = {"Fast", "Normal", "Slow"};
-    Serial.println("采样率: " + String(sample_str[current_sample]));
+    Serial.printf("采样率: %s\n", sample_str[current_sample]);
 }
 
-static void handle_restart() {
+static void handle_restart(const char* param) {
+    (void)param;
     Serial.println("ESP Restart!");
     ESP.restart();
 }
 
-static void handle_help() {
+static void handle_help(const char* param) {
+    (void)param;
     Serial.println("\n====== 串口命令帮助 ======");
     Serial.println("发送类型:      <command>:<value>");
     Serial.println("brightness:<1-100>  -设置亮度");
@@ -174,34 +182,33 @@ static void handle_help() {
     Serial.println("=========================\n");
 }
 
-static void handle_data() {
-    HAL::INA22x_Data ina;
-    HAL::INA22x_GetData(&ina);
+static void handle_data(const char* param) {
+    (void)param;
+    // 缓存 CPU 温度，避免频繁调用 temperatureRead()（ADC 读取开销大）
+    static float    cachedCpuTemp = 0.0f;
+    static uint32_t lastTempRead  = 0;
+    uint32_t now = millis();
+    if (now - lastTempRead > 1000) {
+        cachedCpuTemp = HAL::Get_CPU_Temperature();
+        lastTempRead  = now;
+    }
 
     HAL::USB_CDC_Data tx;
-    tx.header = 0xAA;
-    tx.pack_length = sizeof(tx);
-    tx.snid = SNID;
-    //const must "/0" at end to ensure string is null-terminated
-    strncpy(tx.sw_version, SOFTWARE_VERSION, sizeof(tx.sw_version) - 1);
-    tx.sw_version[sizeof(tx.sw_version) - 1] = '\0';
-    strncpy(tx.hw_version, HARDWARE_VERSION, sizeof(tx.hw_version) - 1);
-    tx.hw_version[sizeof(tx.hw_version) - 1] = '\0';
-    tx.voltage = ina.voltage;
-    tx.current = ina.current;
-    tx.power = ina.power;
-    tx.energy_mWh = ina.energy_mWh;
-    tx.charge_mAh = ina.charge_mAh;
-    // tx.energy_Wh = ina.energy_Wh;
-    // tx.charge_Ah = ina.charge_Ah;
-    tx.temperature = ina.temperature;
-    tx.time_ms = millis();
-    // tx.current_direction = ina.current_direction ? 1 : 0;
-    tx.current_direction = ina.current_direction;
-    // String status = HAL::Get_System_Status();
-    // strncpy(tx.status, status.c_str(), sizeof(tx.status) - 1);
-    // tx.status[sizeof(tx.status) - 1] = '\0';
-    // 计算校验和
+    tx.header       = 0xAA;
+    tx.pack_length  = sizeof(tx);
+    tx.snid         = SNID;
+
+    tx.temperature_cpu = cachedCpuTemp;
+    tx.temperature_adc = INA.temperature;
+    tx.voltage         = INA.voltage;
+    tx.current         = INA.current;
+    tx.power           = INA.power;
+    tx.energy_mWh      = INA.energy_mWh;
+    tx.charge_mAh      = INA.charge_mAh;
+    tx.esp_time_us     = esp_timer_get_time();
+    tx.current_direction = INA.current_direction;
+
+    // 校验和
     uint8_t* bytes = (uint8_t*)&tx;
     uint8_t sum = 0;
     for (size_t i = 0; i < sizeof(tx) - 1; i++) {
@@ -209,40 +216,37 @@ static void handle_data() {
     }
     tx.checksum = sum;
 
-    Serial.write(bytes, sizeof(tx));
+    if (Serial.availableForWrite() >= (int)sizeof(tx)) {
+        Serial.write(bytes, sizeof(tx));
+    }
 }
 
+// ============================================================
+// UART 命令分发（固定栈缓冲区 + strncmp，零 String 分配）
+// ============================================================
 void HAL::UART_Command() {
     if (Serial.available() <= 0) return;
 
-    String message = "";
-    while (Serial.available() > 0) {
+    // 固定栈缓冲区读取一行，避免 String 堆分配
+    char message[64] = {};
+    int  len = 0;
+    while (Serial.available() > 0 && len < (int)sizeof(message) - 1) {
         char c = Serial.read();
-        if (c == '\n') break;
-        message += c;
+        if (c == '\n' || c == '\r') break;
+        message[len++] = c;
     }
-    message.trim();
-    if (message.length() == 0) return;
+    if (len == 0) return;
 
-    // 遍历命令表，寻找匹配的命令前缀
-    bool found = false;
+    // 遍历命令表，strncmp 匹配前缀
     for (int i = 0; i < cmdCount; ++i) {
-        const CommandEntry& entry = cmdTable[i];
-        if (message.startsWith(entry.cmd)) {
-            String param = "";
-            if (entry.has_param) {
-                param = message.substring(strlen(entry.cmd));
-                param.trim();
-            }
+        const CmdEntry& entry = cmdTable[i];
+        size_t nameLen = strlen(entry.name);
+        if (strncmp(message, entry.name, nameLen) == 0) {
+            const char* param = entry.has_param ? (message + nameLen) : "";
             entry.handler(param);
-            found = true;
-            break;
+            return;
         }
     }
 
-    if (!found) {
-        Serial.print("未知命令: ");
-        Serial.println(message);
-        Serial.println("输入 'help' 查看可用命令");
-    }
+    Serial.printf("未知命令: %s\n输入 'help' 查看帮助\n", message);
 }
