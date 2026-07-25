@@ -1,5 +1,4 @@
 # 此项目是ESP32C3-METER电流表项目的软件部分
-> ⚠️ **此分支为 UI 美化版本** — 新增页面切换从左到右滑动过渡动画。稳定版请见 [`main`](https://github.com/BaiHengRui/ESP32C3_USB_METER/tree/main) 分支。
 
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/project_gfxgdvkn)
 ## 上位机仓库 [ESP32C3-METER-Host上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
@@ -61,23 +60,13 @@ ESP32C3_USB_METER/
 
 | 分支 | 说明 |
 |---|---|
-| `main` | 主分支，稳定版本，**不含** UI 过渡动画 |
-| `feature/ui-transition` | 基于 `main`，新增页面切换从左到右滑动过渡动画 |
-
-> 切换分支：`git checkout feature/ui-transition`
+| `main` | 主分支，含 UI 过渡动画、UART 命令优化等 |
 
 ## 编译资源占用
 
-### `main` 分支
 ```
-RAM:   [=         ]   5.8% (used 19116 bytes from 327680 bytes)
-Flash: [===       ]  30.9% (used 607188 bytes from 1966080 bytes)
-```
-
-### `feature/ui-transition` 分支
-```
-RAM:   [=         ]   5.8% (used 19116 bytes from 327680 bytes)
-Flash: [===       ]  30.9% (used 607186 bytes from 1966080 bytes)
+RAM:   [=         ]   5.8% (used 19012 bytes from 327680 bytes)
+Flash: [===       ]  30.7% (used 603360 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
