@@ -1,4 +1,6 @@
-# 此项目是ESP32C3-METER电流表项目的软件部分
+# ESP32C3 USB METER ![SW](https://img.shields.io/badge/SW-v2.0.0-blue) ![HW](https://img.shields.io/badge/HW-v1.0.5-green)
+
+此项目是 ESP32C3-METER 电流表项目的软件部分。
 
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/project_gfxgdvkn)
 ## 上位机仓库 [ESP32C3-METER-Host上位机](https://github.com/BaiHengRui/ESP32C3_USB_METER_Host)
@@ -66,7 +68,7 @@ ESP32C3_USB_METER/
 
 ```
 RAM:   [=         ]   5.8% (used 19012 bytes from 327680 bytes)
-Flash: [===       ]  30.7% (used 603360 bytes from 1966080 bytes)
+Flash: [===       ]  30.6% (used 602350 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
@@ -137,6 +139,25 @@ Flash: [===       ]  30.7% (used 603360 bytes from 1966080 bytes)
 - 方向: `Rotation: UP` / `Rotation: DOWN`
 - 通过 `pendingRotation` 延迟到帧间切换，避免 SPI 竞态导致花屏/反色
 ## 更新日志
+
+V2.0.0
+
+    1) 重构 USB CDC 数据包结构体：
+        - 新增 temperature_cpu（CPU温度）与 temperature_adc（INA温度）独立字段
+        - 需注意！INA226没有片上温度传感器，所以仍然使用CPU温度
+        - 时间戳改用 esp_time_us
+        - 移除 sw_version / hw_version 字符串字段，精简包体
+        - 包体大小保持 44 字节，校验和采用 XOR
+    2) 重构 UART 命令解析：
+        - 输入缓冲由 String 堆分配改为固定栈缓冲区 char[64]，消除堆碎片
+        - 命令匹配改用 strncmp 原地比较，参数提取改为指针偏移
+        - 数值解析统一使用 atoi / strchr，替代 String::toInt / replace / substring
+        - 每次命令解析零堆分配，彻底避免 GC 停顿
+    3) handle_data 性能优化：
+        - CPU 温度每 1 秒缓存刷新一次
+        - Serial.write 前检查 availableForWrite，缓冲区满时跳过不阻塞任务
+    4) UI 过渡动画合并至 main 分支（页面切换从左到右滑动效果）
+    5) 合并 feature/ui-transition 分支，统一主分支维护
 
 V1.3.0
 

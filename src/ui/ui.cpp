@@ -487,12 +487,13 @@ void UI::DrawToast() {
 
     int textW = spr.textWidth(toastMessage);
     int boxW = textW + 24;
-    int boxH = 26;
+    int boxH = 24;
+    // int boxH = 22;
     int boxX = (spr.width() - boxW) / 2;
     int boxY = spr.height() - boxH - 8;
 
-    spr.fillRoundRect(boxX, boxY, boxW, boxH, 8, 0x3186);
-    spr.drawRoundRect(boxX, boxY, boxW, boxH, 8, 0xCE59);
+    spr.fillRoundRect(boxX, boxY, boxW, boxH, 4, 0x2104);
+    // spr.drawRoundRect(boxX, boxY, boxW, boxH, 4, 0xCE59);
     spr.setTextColor(0xFFFF);
     spr.drawString(toastMessage, spr.width() / 2, boxY + boxH / 2);
 
