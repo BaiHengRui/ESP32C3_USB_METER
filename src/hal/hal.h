@@ -17,7 +17,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v1.3.0-UI"
+#define SOFTWARE_VERSION "v1.3.0"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -73,7 +73,6 @@ namespace HAL
         uint8_t  checksum;
     } USB_CDC_Data;
     #pragma pack(pop)
-    // total size: 1+1+4+4+4+4+4+4+4+8+1+1 = 40 bytes
 }
 
 // ============================================================
