@@ -46,15 +46,14 @@ namespace HAL
         uint8_t  header;
         uint8_t  pack_length;
         uint32_t snid;
-        char     sw_version[12];
-        char     hw_version[12];
+        float    temperature_cpu;
+        float    temperature_adc;
         float    voltage;
         float    current;
         float    power;
         float    energy_mWh;
         float    charge_mAh;
-        float    temperature;
-        uint64_t time_ms;
+        uint64_t esp_time_us;
         bool     current_direction;
         uint8_t  checksum;
     } USB_CDC_Data;
