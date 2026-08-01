@@ -98,8 +98,8 @@ float HAL::Get_CPU_Temperature(){
 
     if (xSemaphoreTake(tempMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         int64_t now = esp_timer_get_time();
-        // 每 1000ms读取一次温度传感器
-        if (now - lastTempReadUs > 1000000 || lastTempReadUs == 0) {
+        // 每 500ms读取一次温度传感器
+        if (now - lastTempReadUs > 500000 || lastTempReadUs == 0) {
             cachedCpuTemp  = temperatureRead();
             lastTempReadUs = now;
         }

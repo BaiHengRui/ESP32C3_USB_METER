@@ -1,0 +1,64 @@
+#include "hal.h"
+
+#if INA228_EN
+    #include "INA228.h"
+    INA228 ina(Wire);
+#else
+    #include "INA226.h"
+    INA226 ina(Wire);
+#endif
+// INA228 ina(Wire);
+
+bool HAL::INA22x_Init(){ 
+    ina.begin(0x40);
+    // Rshunt = 0.005 ohm, max expected current = 8A, then ADC range should be set to ±40.96mV to maximize resolution (LSB = 78.125µV)
+    // Please refer to the "calibrate" function in the INA228 library
+    #if INA228_EN
+        ina.calibrate(0.005f,8,ADC_RANGE_40_96mV); //5m ohm 最大期望电流8A 40.96mV量程(max 8A * 5mOhm = 40mV)
+        //INA228特有功能，设置温度系数和启用温度补偿
+        ina.setShuntTemperatureCoefficient(100); //铜锰合金电阻 温度系数100ppm/*C
+        ina.enableTemperatureCompensation(true);
+    #else
+        //INA226无法设置寄存器精度
+        ina.calibrate(0.005f,8); //5m ohm 最大期望电流8A
+    #endif
+    HAL::INA22x_SetConfig(sample_mode);
+    HAL::LOG_INFO("INA Initialized.");
+    return true;
+}
+
+void HAL::INA22x_GetData(INA22x_Data *data){
+    // I2C 互斥: 与 PD 任务共享 Wire 总线
+    if (xWireMutex) xSemaphoreTake(xWireMutex, portMAX_DELAY);
+
+    nowTime_us = esp_timer_get_time();
+    // shuntVoltage_mV = ina.readShuntVoltage()/1000;
+    // busVoltage = ina.readBusVoltage();
+    // data->voltage = fabs(busVoltage + shuntVoltage_mV);
+    data->voltage = fabs(ina.readBusVoltage());
+    data->current = fabs(ina.readCurrent());
+    data->power   = fabs(ina.readPower());
+    //sample = avg * count
+    data->current_direction = (ina.readCurrent() < 0) ? 1 : 0;
+    #if INA228_EN
+    //INA228实现 内部累计功能，直接读取
+        data->temperature = ina.readTemperature();
+        data->charge_mAh = fabs(ina.readCharge_mAh());
+        data->energy_mWh = ina.readEnergy_mWh();
+    #else
+    //INA226实现 没有硬件累计功能，时间积分计算
+    //charge_mAh =  current(A) * Δt(h) = current(A) * Δt(s) / 3600
+    //energy_mWh = power(W) * Δt(h) = power(W) * Δt(s) / 3600
+        data->temperature = Get_CPU_Temperature();
+        // data->charge_mAh += (data->current * (nowTime - lastTime)) / (3600.0f * 1);
+        // data->energy_mWh += (data->power * (nowTime - lastTime)) / (3600.0f * 1);
+        data->charge_mAh += (data->current * (nowTime_us - lastTime_us)) / (3600000000.0f);
+        data->energy_mWh += (data->power * (nowTime_us - lastTime_us)) / (3600000000.0f);
+    #endif
+    data->charge_Ah = data->charge_mAh / 1000.0f;
+    data->energy_Wh = data->energy_mWh / 1000.0f;
+    data->device_id = ina.readDeviceID();
+    lastTime_us = nowTime_us;
+
+    if (xWireMutex) xSemaphoreGive(xWireMutex);
+}
