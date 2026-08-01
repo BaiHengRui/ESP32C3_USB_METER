@@ -141,7 +141,7 @@ static void handle_threshold_show(const char* param) {
 static void handle_info(const char* param) {
     (void)param;
     HAL::LOG_INFO("设备信息：");
-    Serial.printf("上电运行时间: %s\n", HAL::Get_System_RunTime(millis()).c_str());
+    Serial.printf("上电运行时间: %s\n", HAL::Get_System_RunTime(esp_timer_get_time()).c_str());
     Serial.printf("上电启动时间: %d\n", startTime);
     Serial.printf("CPU温度: %.1f\n", HAL::Get_CPU_Temperature());
     Serial.printf("可用RAM: %d\n", ESP.getFreeHeap());
@@ -184,21 +184,13 @@ static void handle_help(const char* param) {
 
 static void handle_data(const char* param) {
     (void)param;
-    // 缓存 CPU 温度，避免频繁调用 temperatureRead()（ADC 读取开销大）
-    static float    cachedCpuTemp = 0.0f;
-    static uint32_t lastTempRead  = 0;
-    uint32_t now = millis();
-    if (now - lastTempRead > 1000) {
-        cachedCpuTemp = HAL::Get_CPU_Temperature();
-        lastTempRead  = now;
-    }
 
     HAL::USB_CDC_Data tx;
     tx.header       = 0xAA;
     tx.pack_length  = sizeof(tx);
     tx.snid         = SNID;
 
-    tx.temperature_cpu = cachedCpuTemp;
+    tx.temperature_cpu = HAL::Get_CPU_Temperature();
     tx.temperature_adc = INA.temperature;
     tx.voltage         = INA.voltage;
     tx.current         = INA.current;

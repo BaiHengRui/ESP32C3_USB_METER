@@ -15,14 +15,15 @@ void HAL::Sys_Init(){
 }
 
 void HAL::LOG_INFO(const String msg){
-    Serial.print("[" +String(millis()) + " ms] ");
+    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    Serial.print("[" + String((uint32_t)now_ms) + " ms] ");
     Serial.println(msg);
 }
 
 // Returns the system run time in the format "HH:MM:SS"
 // input parameter: esp_timer_get_time() return value in microseconds
-String HAL::Get_System_RunTime(uint32_t us){
-    uint64_t totalSec = us / 1000000;
+String HAL::Get_System_RunTime(uint64_t us){
+    uint64_t totalSec = us / 1000000ULL;
     uint32_t hours   = totalSec / 3600;
     uint32_t minutes = (totalSec % 3600) / 60;
     uint32_t seconds = totalSec % 60;
@@ -35,53 +36,45 @@ String HAL::Get_System_RunTime(uint32_t us){
 }
 
 String HAL::Get_System_Status(){
-    const float OVP = 50.0f; //48V for PD3.1 max voltage(48V-5A)
-    const float OCP = 8.0f; //8A for 40.96mV shunt range
-    const float LVP = 4.2f; //4.2V for DC-DC buck converter under-voltage lockout
-    const float OTP = 60.0f; //60*C Tepmerature max for safe and reliable operation
-    const uint32_t showDelay = 1000; // 1000ms for alternating display of multiple alerts
+    const float OVP = 50.0f; // 48V for PD3.1 max voltage(48V-5A)
+    const float OCP = 8.0f;  // 8A for 40.96mV shunt range
+    const float LVP = 4.2f;  // 4.2V for DC-DC buck converter under-voltage lockout
+    const float OTP = 60.0f; // 60°C Temperature max for safe and reliable operation
 
-    // Evaluate all conditions independently
-    bool ov_c = (INA.voltage >= OVP && INA.current >= OCP);
-    bool hot  = (INA.temperature >= OTP || HAL::Get_CPU_Temperature() >= OTP);
-    bool ov   = (INA.voltage >= OVP && !ov_c);
-    bool oc   = (INA.current >= OCP && !ov_c);
-    bool lv   = (INA.voltage <= LVP && !oc);
-
-    // Collect triggered states (priority order: most dangerous first)
-    struct Alert { const char* msg; uint16_t color; };
-    Alert alerts[5];
-    int count = 0;
-    if (ov_c) alerts[count++] = {"OV/C!", 0xF800};
-    if (hot)  alerts[count++] = {"HOT!",  0xF800};
-    if (ov)   alerts[count++] = {"OV !",  0xF800};
-    if (oc)   alerts[count++] = {"OC !",  0xF800};
-    if (lv)   alerts[count++] = {"LV !",  0xFFE0};
-
-    // No fault: all clear
-    if (count == 0) {
-        HAL::LCD_SetTextColor(0x0400); // GREEN
-        return "RDY";
+    // OV/C > OV > OC > HOT > LV
+    // Priority 1: OV/C — simultaneous over-voltage AND over-current (most dangerous)
+    if (INA.voltage >= OVP && INA.current >= OCP) {
+        HAL::LCD_SetTextColor(0xF800); // RED
+        return "OV/C!";
     }
 
-    // Single fault: display directly
-    if (count == 1) {
-        HAL::LCD_SetTextColor(alerts[0].color);
-        return alerts[0].msg;
+    // Priority 2: OV — over-voltage only
+    if (INA.voltage >= OVP) {
+        HAL::LCD_SetTextColor(0xF800); // RED
+        return "OV !";
     }
 
-    // Multiple faults: alternate display every ~showDelay
-    static uint32_t lastSwitch = 0;
-    static uint8_t  altIdx     = 0;
-    if (millis() - lastSwitch > showDelay) {
-        lastSwitch = millis();
-        altIdx = (altIdx + 1) % count;
-    } else {
-        altIdx = altIdx % count; // keep in range if count changed
+    // Priority 3: OC — over-current only
+    if (INA.current >= OCP) {
+        HAL::LCD_SetTextColor(0xF800); // RED
+        return "OC !";
     }
 
-    HAL::LCD_SetTextColor(alerts[altIdx].color);
-    return alerts[altIdx].msg;
+    // Priority 4: HOT — over-temperature (suppressed if electrical fault active)
+    if (INA.temperature >= OTP) {
+        HAL::LCD_SetTextColor(0xF800); // RED
+        return "HOT!";
+    }
+
+    // Priority 5: LV — under-voltage (voltage < 4.2V; mutually exclusive with OV/OVC)
+    if (INA.voltage <= LVP) {
+        HAL::LCD_SetTextColor(0xFFE0); // YELLOW
+        return "LV !";
+    }
+
+    // All clear — no faults
+    HAL::LCD_SetTextColor(0x0400); // GREEN
+    return "RDY";
 }
 
 float HAL::Get_CPU_Temperature(){
@@ -203,11 +196,12 @@ void HAL::Update_Graph_Data() {
 void HAL::ShowToast(const char* msg) {
     strncpy(toastMessage, msg, sizeof(toastMessage) - 1);
     toastMessage[sizeof(toastMessage) - 1] = '\0';
-    toastStartTime = millis();
+    toastStartTime = (uint32_t)(esp_timer_get_time() / 1000ULL);
 }
 
 bool HAL::IsToastActive() {
-    return (millis() - toastStartTime < TOAST_DURATION_MS) && (toastMessage[0] != '\0');
+    uint32_t now_ms = (uint32_t)(esp_timer_get_time() / 1000ULL);
+    return (now_ms - toastStartTime < TOAST_DURATION_MS) && (toastMessage[0] != '\0');
 }
 
 void HAL::ApplyPendingRotation() {
