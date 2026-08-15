@@ -350,7 +350,7 @@ static void _DrawMenuContent() {
     // === Header ===
     spr.loadFont(Font1_18);
     spr.setTextColor(MenuColors::TEXT_PRIMARY);
-    spr.setCursor(10, 2);
+    spr.setCursor(10, 4);
     spr.print("设置");
     spr.unloadFont();
 
@@ -370,6 +370,26 @@ static void _DrawMenuContent() {
         RenderMenuItem(index, startY + row * itemHeight);
     }
     spr.unloadFont();
+
+    // === 右侧滚动位置指示条 ===
+    {
+        const int trackX   = 236;   // 指示条左边缘
+        const int trackW   = 3;     // 指示条宽度（px）
+        const int trackTop = 28;
+        const int trackBot = 124;
+        const int trackH   = trackBot - trackTop;
+
+        // 轨道（灰色）
+        spr.fillRect(trackX, trackTop, trackW, trackH, MenuColors::SEPARATOR);
+
+        // 当前项高亮段（按总项数等分轨道；仅在选中/编辑模式显示）
+        const uint8_t count = MenuConfig::menuItemCount;
+        if (MenuConfig::currentMode != MenuConfig::MODE_IDLE && count > 0) {
+            int segTop = trackTop + ((int)MenuConfig::selectedIndex * trackH) / count;
+            int segBot = trackTop + ((int)(MenuConfig::selectedIndex + 1) * trackH) / count;
+            spr.fillRect(trackX, segTop, trackW, segBot - segTop, 0xC618); // 浅灰高亮
+        }
+    }
 
     // === Bottom Hint ===  
     spr.loadFont(Font1_12);
