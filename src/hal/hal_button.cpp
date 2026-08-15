@@ -159,6 +159,9 @@ void Key1LongPress(Button2& btn1) {
 }
 
 void Key1DoubleClick(Button2& btn1) {
+    // 设置菜单中禁用全局双击快捷键
+    if (nowApp == AppState::MENU) return;
+
     // Rotation 1时，SW0物理在右侧 → 交换左右功能
     bool isLeft = (currentRotation == 1) ? false : true;
     if (isLeft) {
@@ -170,22 +173,19 @@ void Key1DoubleClick(Button2& btn1) {
         char msg[32];
         snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
-        if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 2) {
-            MenuConfig::tempSampleMode = sample_mode;
-        }
     } else {
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
         pendingRotation = newRotation;
         HAL::ShowToast(newRotation == 1 ? "Rotation: DOWN" : "Rotation: UP");
-        if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 1) {
-            MenuConfig::tempRotation = newRotation;
-        }
     }
 }
 
 void Key2DoubleClick(Button2& btn2) {
+    // 设置菜单中禁用全局双击快捷键
+    if (nowApp == AppState::MENU) return;
+
     // Rotation 1时，SW1物理在左侧 → 交换左右功能
     bool isLeft = (currentRotation == 1) ? true : false;
     if (isLeft) {
@@ -197,18 +197,12 @@ void Key2DoubleClick(Button2& btn2) {
         char msg[32];
         snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
-        if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 2) {
-            MenuConfig::tempSampleMode = sample_mode;
-        }
     } else {
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
         pendingRotation = newRotation;
         HAL::ShowToast(newRotation == 1 ? "Rotation: DOWN" : "Rotation: UP");
-        if (nowApp == AppState::MENU && MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == 1) {
-            MenuConfig::tempRotation = newRotation;
-        }
     }
 }
 

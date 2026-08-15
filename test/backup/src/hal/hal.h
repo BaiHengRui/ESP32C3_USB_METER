@@ -82,8 +82,8 @@ namespace HAL
 {
     /* System */
     void   Sys_Init();
-    void   LOG_INFO(const String msg);
-    String Get_System_RunTime(uint32_t ms);
+    void   LOG_INFO(const char* str, ...);
+    String Get_System_RunTime(uint32_t us);
     String Get_System_Status();
     float  Get_CPU_Temperature();
     void   APP_Run();

@@ -18,6 +18,7 @@ uint8_t  defaultRotation   = 3;
 uint8_t  currentRotation   = 3;
 int8_t   pendingRotation   = -1;
 uint8_t  sample_mode       = 0;   // 0=Fast, 1=Normal, 2=Slow
+uint8_t  ui_effects        = 1;   // 默认启用UI过渡动效
 
 // Graph
 float    voltageBuffer[GRAPH_WIDTH] = {0};

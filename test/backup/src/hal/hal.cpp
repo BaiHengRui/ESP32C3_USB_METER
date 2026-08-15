@@ -11,12 +11,18 @@ void HAL::Sys_Init(){
     pinMode(LCD_BL_PIN, OUTPUT); // LCD Backlight Pin
     SNID = ESP.getEfuseMac();
     HAL::LOG_INFO("System Initialized.");
-    HAL::LOG_INFO("SN: " + String(SNID, HEX) + "/ SW: " + SOFTWARE_VERSION + "/ HW: " + HARDWARE_VERSION);
+    HAL::LOG_INFO("SN: %012llX / SW: %s / HW: %s", SNID, SOFTWARE_VERSION, HARDWARE_VERSION);
 }
 
-void HAL::LOG_INFO(const String msg){
-    Serial.print("[" +String(millis()) + " ms] ");
-    Serial.println(msg);
+void HAL::LOG_INFO(const char* str, ...){
+    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
+    Serial.print("[" + String((uint32_t)now_ms) + " ms] ");
+    char buf[128];
+    va_list args;
+    va_start(args, str);
+    vsnprintf(buf, sizeof(buf), str, args);
+    va_end(args);
+    Serial.println(buf);
 }
 
 // Returns the system run time in the format "HH:MM:SS"

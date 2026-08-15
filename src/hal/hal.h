@@ -40,21 +40,6 @@ namespace HAL
         uint16_t status;
     } INA22x_Data;
 
-    // typedef struct
-    // {
-    //     float pd_voltage;
-    //     float pd_current;
-    //     float pd_power;
-    //     bool pd_ready;
-    //     bool pd_connected;
-    //     bool pd_is_pps;
-    //     uint8_t pd_cc_pin;
-    //     uint8_t pd_pos;
-    //     uint8_t pd_pdo_count;
-    //     uint32_t pd_packet_count;
-    //     char pd_msg[20];
-    // } PDO_Data;
-
     #pragma pack(push, 1)
     typedef struct
     {
@@ -82,7 +67,7 @@ namespace HAL
 {
     /* System */
     void   Sys_Init();
-    void   LOG_INFO(const String msg);
+    void   LOG_INFO(const char* fmt, ...);
     String Get_System_RunTime(uint64_t us);
     String Get_System_Status();
     float  Get_CPU_Temperature();

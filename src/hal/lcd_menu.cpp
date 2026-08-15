@@ -8,6 +8,7 @@ namespace MenuConfig {
     int16_t tempBrightness = 50;
     int16_t tempRotation = 3;
     int16_t tempSampleMode = 0;
+    int16_t tempUIEffects = 1;
 
     void Menu_Init() {
         currentMode = MODE_IDLE;
@@ -36,6 +37,7 @@ namespace MenuConfig {
         if (tempRotation != 1 && tempRotation != 3) tempRotation = 1;
         tempSampleMode = HAL::Sys_NVS_Valid("sample_mode", 0);
         if (tempSampleMode > 2) tempSampleMode = 0;
+        tempUIEffects = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
 
         currentMode = MODE_EDIT;
     }
@@ -57,7 +59,14 @@ namespace MenuConfig {
                     HAL::INA22x_SetConfig(tempSampleMode);
                     sample_mode = tempSampleMode; // 同步全局变量
                     break;
+                case 3: // UI Effects
+                    HAL::Sys_NVS_Write("ui_effects", tempUIEffects);
+                    ui_effects = tempUIEffects;   // 同步全局变量
+                    break;
             }
+        } else {
+            // 取消保存：编辑期间亮度已被实时预览修改，恢复为 NVS 已保存值
+            HAL::LCD_SetBrightness(HAL::Sys_NVS_Valid("light", 50, 100, 1));
         }
         // 无论是否保存，都回到选择模式
         currentMode = MODE_SELECT;
@@ -84,6 +93,7 @@ namespace MenuConfig {
                 tempBrightness += (delta > 0) ? 5 : -5;
                 if (tempBrightness < 5) tempBrightness = 5;
                 if (tempBrightness > 100) tempBrightness = 100;
+                HAL::LCD_SetBrightness(tempBrightness); // 实时预览
                 break;
             case 1: // Rotation (只能 1 或 3)
                 // 切换
@@ -96,11 +106,28 @@ namespace MenuConfig {
                     tempSampleMode = (tempSampleMode + 2) % 3; // 减一等效
                 }
                 break;
+            case 3: // UI Effects (0=Off, 1=On)
+                tempUIEffects = tempUIEffects ? 0 : 1;
+                break;
         }
     }
 
+    // 计算可见窗口的起始条目索引：
+    // 选中项尽量固定在 menuCursorRow 行，窗口随选中项上下滚动；
+    // 顶部未到光标行时贴顶，底部不足一屏时贴底。
+    uint8_t GetWindowStart() {
+        if (menuVisibleCount >= menuItemCount) return 0;
+
+        int16_t start = (int16_t)selectedIndex - (int16_t)menuCursorRow;
+        if (start < 0) start = 0;
+
+        int16_t maxStart = (int16_t)menuItemCount - (int16_t)menuVisibleCount;
+        if (start > maxStart) start = maxStart;
+        return (uint8_t)start;
+    }
+
     const char* GetTitle(uint8_t index) {
-        static const char* titles[] = {"Brightness", "Rotation", "Sample Rate", "Exit Main(Back)"};
+        static const char* titles[] = {"Brightness", "Rotation", "Sample Rate", "UI Effects", "Exit Main(Back)"};
         return (index < menuItemCount) ? titles[index] : "";
     }
 
@@ -114,6 +141,7 @@ namespace MenuConfig {
                 case 0: sprintf(buffer, "%d%%", tempBrightness); break;
                 case 1: sprintf(buffer, "(%d)%s", tempRotation, tempRotation == 1 ? "Down" : "UP"); break;
                 case 2: sprintf(buffer, "%s", mode_str[tempSampleMode]); break;
+                case 3: sprintf(buffer, "%s", tempUIEffects ? "On" : "Off"); break;
                 default: break;
             }
         } else {
@@ -133,6 +161,11 @@ namespace MenuConfig {
                     uint8_t m = HAL::Sys_NVS_Valid("sample_mode", 0);
                     if (m > 2) m = 0;
                     sprintf(buffer, "%s", mode_str[m]);
+                    break;
+                }
+                case 3: {
+                    uint8_t v = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
+                    sprintf(buffer, "%s", v ? "On" : "Off");
                     break;
                 }
                 default: break;

@@ -309,8 +309,10 @@ static void _DrawSystemInfoContent() {
     spr.loadFont(Font1_14);
     spr.setTextColor(0xFFFF);
     spr.setCursor(0,2);
+    char buf[17];
+    snprintf(buf, sizeof(buf), "%012llX", SNID);
     spr.print("  SN:");
-    spr.println(String(SNID, HEX));
+    spr.println(buf);
     spr.print("  INA:");
     spr.println(INA.device_id, HEX);
     spr.print("  SW:");

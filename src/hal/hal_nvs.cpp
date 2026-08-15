@@ -15,6 +15,8 @@ void HAL::NVS_Load() {
     defaultRotation   = HAL::Sys_NVS_Valid("rotation", 3, 3);
     // INA 采样模式
     sample_mode = HAL::Sys_NVS_Valid("sample_mode", 0, 2);
+    // UI 过渡动效
+    ui_effects = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
     // 计时阈值
     thrStartVMv = HAL::Sys_NVS_ReadUInt("thr_sv", 0);
     thrStartIMa = HAL::Sys_NVS_ReadUInt("thr_si", 0);

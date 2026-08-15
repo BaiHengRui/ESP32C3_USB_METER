@@ -289,8 +289,10 @@ static void _DrawSystemInfoContent() {
     spr.loadFont(Font1_14);
     spr.setTextColor(0xFFFF);
     spr.setCursor(0,2);
-    spr.print("  SN:");
-    spr.println(String(SNID, HEX));
+    char buf[17];
+    snprintf(buf, sizeof(buf), "%012llX", SNID);
+    spr.print("  SN: ");
+    spr.println(buf);
     spr.print("  INA:");
     spr.println(INA.device_id, HEX);
     spr.print("  SW:");
@@ -361,8 +363,11 @@ static void _DrawMenuContent() {
     spr.print(SOFTWARE_VERSION);
     const uint8_t startY = 28;
     const uint8_t itemHeight = 24;
-    for (uint8_t i = 0; i < MenuConfig::menuItemCount; i++) {
-        RenderMenuItem(i, startY + i * itemHeight);
+    const uint8_t windowStart = MenuConfig::GetWindowStart();
+    for (uint8_t row = 0; row < MenuConfig::menuVisibleCount; row++) {
+        uint8_t index = windowStart + row;
+        if (index >= MenuConfig::menuItemCount) break;
+        RenderMenuItem(index, startY + row * itemHeight);
     }
     spr.unloadFont();
 
@@ -425,6 +430,21 @@ static void _DrawPageContent(uint8_t app) {
 // 页面切换过渡动画 — 旧页左滑出 + 新页右滑入, 双页同时可见
 // Famers: 8, Delay: 5ms Total: 40ms = FreeRTOS Task Delay
 void UI::TransitionTo(uint8_t oldApp, uint8_t newApp) {
+    // UI 动效关闭时：直接渲染新页面，无过渡动画
+    if (!ui_effects) {
+        spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
+        spr.setTextDatum(CC_DATUM);
+        if (newApp == AppState::MENU && menuFirstEntry) {
+            menuFirstEntry = false;
+            MenuConfig::Menu_Init();
+        }
+        _DrawPageContent(newApp);
+        UI::DrawToast();
+        spr.pushSprite(0, 0);
+        spr.deleteSprite();
+        return;
+    }
+
     const int steps = 8;              // 动画帧数
     const int stepDelay = 5;          // 每帧间隔 (ms)
     const int displayWidth = TFT_HEIGHT;  // 240

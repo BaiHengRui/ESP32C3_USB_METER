@@ -24,7 +24,7 @@ void setup() {
   HAL::INA22x_Init();
   HAL::LCD_Init();
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
-  xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 2048, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
+  xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 4096, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
   xTaskCreatePinnedToCore(Task_UART_Command, "Task_UART_Command", 4096, NULL, 3, &xTaskUART, 0);
   xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 4, &xTaskButton, 0); //Max priority for button click handling to ensure responsiveness
   xTaskCreatePinnedToCore(Task_Graph_Update, "Task_Graph_Update", 2048, NULL, 2, &xTaskGraph, 0);

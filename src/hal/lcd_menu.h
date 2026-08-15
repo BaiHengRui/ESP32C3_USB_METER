@@ -18,8 +18,12 @@ namespace MenuConfig {
     extern int16_t tempBrightness;
     extern int16_t tempRotation;
     extern int16_t tempSampleMode;
+    extern int16_t tempUIEffects;
 
-    constexpr uint8_t menuItemCount = 4; // Brightness, Rotation, Sample, Exit
+    constexpr uint8_t menuItemCount = 5; // Brightness, Rotation, Sample, UI Effects, Exit
+
+    constexpr uint8_t menuVisibleCount = 4;  // 屏幕同时可见的菜单项数量
+    constexpr uint8_t menuCursorRow   = 2;   // 选中项固定在可见窗口中的行（0-based）
 
     void Menu_Init();                   // 重置为空闲模式
     void EnterSelectMode();              // 空闲 选择，默认选中第一项
@@ -29,6 +33,8 @@ namespace MenuConfig {
     void SelectNext();
     void SelectPrev();
     void AdjustValue(int8_t delta);      // 编辑模式下调整临时值
+
+    uint8_t GetWindowStart();            // 计算可见窗口的起始条目索引（用于滚动）
 
     const char* GetTitle(uint8_t index);
     void GetValueStr(uint8_t index, char* buffer);

@@ -20,6 +20,7 @@ extern uint8_t  defaultRotation;
 extern uint8_t  currentRotation;
 extern int8_t   pendingRotation;   // -1=无待处理, 0-3=目标方向
 extern uint8_t  sample_mode;       // 0=Fast, 1=Normal, 2=Slow
+extern uint8_t  ui_effects;        // 1=启用UI过渡动效, 0=禁用
 
 // Graph
 #define GRAPH_WIDTH 180
