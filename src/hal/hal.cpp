@@ -6,8 +6,9 @@ void HAL::Sys_Init(){
     Serial.begin(912600); // Serial Init
     HAL::NVS_Init();
     HAL::NVS_Load();
-    // Wire.begin(I2C_SDA_PIN,I2C_SCL_PIN,400000); // I2C Init
-    Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN); // I2C Init
+    Wire.begin(I2C_SDA_PIN,I2C_SCL_PIN,400000); // I2C Init
+    // Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN); // I2C Init
+    xWireMutex = xSemaphoreCreateMutex(); // I2C 总线互斥锁, INA 与其它外设共用
     pinMode(LCD_BL_PIN, OUTPUT); // LCD Backlight Pin
     SNID = ESP.getEfuseMac();
     HAL::LOG_INFO("System Initialized.");
@@ -15,8 +16,8 @@ void HAL::Sys_Init(){
 }
 
 void HAL::LOG_INFO(const char* str, ...){
-    uint64_t now_ms = esp_timer_get_time() / 1000ULL;
-    Serial.print("[" + String((uint32_t)now_ms) + " ms] ");
+    uint64_t now_ms = esp_timer_get_time() / 1000ULL;  // Convert microseconds to milliseconds
+    Serial.print("[" + String((uint64_t)now_ms) + " ms] ");
     char buf[128];
     va_list args;
     va_start(args, str);

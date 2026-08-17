@@ -4,6 +4,10 @@
 // 集中声明，按模块分组；定义见 globals.cpp
 // ============================================================
 #include <stdint.h>
+#include <freertos/semphr.h>
+
+// I2C 总线互斥锁 (INA 与其它外设共享 Wire)
+extern SemaphoreHandle_t xWireMutex;
 
 // System
 extern uint64_t SNID;

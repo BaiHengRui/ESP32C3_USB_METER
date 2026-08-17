@@ -9,6 +9,8 @@
 #endif
 // INA228 ina(Wire);
 
+static uint16_t ina_device_id = 0;
+
 bool HAL::INA22x_Init(){ 
     ina.begin(0x40);
     // Rshunt = 0.005 ohm, max expected current = 8A, then ADC range should be set to ±40.96mV to maximize resolution (LSB = 78.125µV)
@@ -22,6 +24,7 @@ bool HAL::INA22x_Init(){
         //INA226无法设置寄存器精度
         ina.calibrate(0.005f,8); //5m ohm 最大期望电流8A
     #endif
+    ina_device_id = ina.readDeviceID();
     HAL::INA22x_SetConfig(sample_mode);
     HAL::LOG_INFO("INA Initialized.");
     return true;
@@ -33,34 +36,49 @@ void HAL::INA22x_GetData(INA22x_Data *data){
     // shuntVoltage_mV = ina.readShuntVoltage()/1000;
     // busVoltage = ina.readBusVoltage();
     // data->voltage = fabs(busVoltage + shuntVoltage_mV);
+
+    // I2C 总线互斥: 与 INA22x_SetConfig 共用同一把锁, 避免 Wire 读写冲突
+    if (xWireMutex) xSemaphoreTake(xWireMutex, portMAX_DELAY);
+
     data->voltage = fabs(ina.readBusVoltage());
-    data->current = fabs(ina.readCurrent());
+    float rawCurrent = ina.readCurrent();               // 只读一次: 带符号的原始值
+    data->current = fabs(rawCurrent);                   // 电流幅值(恒为正)
     data->power   = fabs(ina.readPower());
     //sample = avg * count
-    data->current_direction = (ina.readCurrent() < 0) ? 1 : 0;
+    data->current_direction = (rawCurrent < 0) ? 1 : 0; // 用同一次读到的符号判方向
     #if INA228_EN
     //INA228实现 内部累计功能，直接读取
         data->temperature = ina.readTemperature();
         data->charge_mAh = fabs(ina.readCharge_mAh());
         data->energy_mWh = ina.readEnergy_mWh();
-    #else
+    #endif
+
+    if (xWireMutex) xSemaphoreGive(xWireMutex);
+
+    #if !INA228_EN
     //INA226实现 没有硬件累计功能，时间积分计算
     //charge_mAh =  current(A) * Δt(h) = current(A) * Δt(s) / 3600
     //energy_mWh = power(W) * Δt(h) = power(W) * Δt(s) / 3600
+        // 非I2C操作放锁外, 避免长时间占用I2C锁
         data->temperature = Get_CPU_Temperature();
         // data->charge_mAh += (data->current * (nowTime - lastTime)) / (3600.0f * 1);
         // data->energy_mWh += (data->power * (nowTime - lastTime)) / (3600.0f * 1);
         data->charge_mAh += (data->current * (nowTime_us - lastTime_us)) / (3600000000.0f);
         data->energy_mWh += (data->power * (nowTime_us - lastTime_us)) / (3600000000.0f);
     #endif
+
     data->charge_Ah = data->charge_mAh / 1000.0f;
     data->energy_Wh = data->energy_mWh / 1000.0f;
-    data->device_id = ina.readDeviceID();
+    // data->device_id = ina.readDeviceID();
+    data->device_id = ina_device_id;
     // lastTime = nowTime;
     lastTime_us = nowTime_us;
 }
 
 void HAL::INA22x_SetConfig(uint8_t sample_mode){
+    // I2C 总线互斥: 与 INA22x_GetData 共用同一把锁
+    if (xWireMutex) xSemaphoreTake(xWireMutex, portMAX_DELAY);
+
     #if INA228_EN
     // INA228配置选项，可以根据需要进行调整
         switch (sample_mode)
@@ -96,4 +114,6 @@ void HAL::INA22x_SetConfig(uint8_t sample_mode){
             break;
         }
     #endif
+
+    if (xWireMutex) xSemaphoreGive(xWireMutex);
 }

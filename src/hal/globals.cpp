@@ -3,6 +3,9 @@
 // ============================================================
 #include "hal.h"
 
+// I2C 总线互斥锁
+SemaphoreHandle_t xWireMutex = NULL;
+
 // System
 uint64_t SNID(0);
 int32_t  nowTime(0), lastTime(0);
