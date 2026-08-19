@@ -2,7 +2,7 @@
 #include "../ui/ui.h"
 
 void HAL::Sys_Init(){
-    // esp_task_wdt_init(10, false); //watch dog 5s time out
+    esp_task_wdt_init(5, false); //watch dog 5s time out
     Serial.begin(912600); // Serial Init
     HAL::NVS_Init();
     HAL::NVS_Load();
