@@ -20,7 +20,7 @@
 #define SOFTWARE_VERSION "v2.1.1"
 #define HARDWARE_VERSION "v1.0.5"
 
-#define INA228_EN 1
+#define INA228_EN 0
 
 // HAL 数据类型
 namespace HAL

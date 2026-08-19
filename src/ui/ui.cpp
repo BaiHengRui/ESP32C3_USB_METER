@@ -296,7 +296,7 @@ static void _DrawSystemInfoContent() {
     spr.print("  INA:");
     spr.println(INA.device_id, HEX);
     spr.print("  SW:");
-    spr.println(SOFTWARE_VERSION);
+    spr.println(SOFTWARE_VERSION + String(INA228_EN ? " _(228)" : "_(226)"));
     spr.print("  HW:");
     spr.println(HARDWARE_VERSION);
     spr.printf("  Start:%d ms\n", startTime);
