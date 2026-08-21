@@ -62,7 +62,7 @@ ESP32C3_USB_METER/
 
 ```
 RAM:   [=         ]   5.8% (used 19028 bytes from 327680 bytes)
-Flash: [===       ]  32.0% (used 629890 bytes from 1966080 bytes)
+Flash: [===       ]  32.0% (used 629974 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
