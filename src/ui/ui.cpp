@@ -4,7 +4,7 @@
 #include "ui.h"
 #include "../hal/hal_lcd.h"
 #include "../assets/fonts/Font1_12.h"   //MiSans-Demibold(EN)
-#include "../assets/fonts/Font1_14.h"   //OPPOSans-B-2(EN)
+#include "../assets/fonts/Font1_14.h"   //OPPOSans-B-2(CN)
 #include "../assets/fonts/Font1_18.h"   //OPPOSans-M-2(CN)
 #include "../assets/fonts/Font1_45.h"   //Hun-DIN1451(EN)
 #include "../assets/imgs/arrow_left.h"  //W:20px H:20px
@@ -249,10 +249,11 @@ static bool _DrawWaveGraphContent() {
     // sprintf(buf, "%.1f", (iHistoryMax - iDisplayMax)/gridRows);
     // spr.drawString("A/d:" + String(buf), 130, 125);
     
-    // s/div indicator
+    // s/div indicator: 波形每 20ms 采一点, 每格 (GRAPH_WIDTH/gridCols) 点
     spr.setTextDatum(CC_DATUM);
     spr.setTextColor(0x8410); // Gray
-    spr.drawString("1.35s/d", 202, 15);
+    sprintf(buf, "%.1fs/d", (GRAPH_WIDTH * 20.0f) / (gridCols * 1000.0f));
+    spr.drawString(buf, 202, 15);
 
     // PAUSED indicator
     if (graphPaused) {
@@ -334,12 +335,17 @@ void RenderMenuItem(uint8_t index, int yPos) {
         spr.setCursor(160, yPos + 6);
         spr.print(valueStr);
 
-        // 编辑模式下，当前编辑项显示星号
-        if (MenuConfig::currentMode == MenuConfig::MODE_EDIT && MenuConfig::editItem == index) {
+        // 编辑模式下，当前编辑项显示尖括号箭头
+        if (MenuConfig::currentMode == MenuConfig::MODE_EDIT && index == MenuConfig::selectedIndex) {
             spr.setTextColor(TFT_RED);
             spr.setCursor(220, yPos + 6);
-            spr.print("*");
+            spr.print("<");
         }
+    } else if (MenuConfig::IsSubmenu(index)) {
+        // 子菜单项显示右箭头
+        spr.setTextColor(MenuColors::TEXT_SELECTED);
+        spr.setCursor(222, yPos + 6);
+        spr.print(">");
     }
 }
 
@@ -351,7 +357,7 @@ static void _DrawMenuContent() {
     spr.loadFont(Font1_18);
     spr.setTextColor(MenuColors::TEXT_PRIMARY);
     spr.setCursor(10, 4);
-    spr.print("设置");
+    spr.print(MenuConfig::GetGroupTitle());
     spr.unloadFont();
 
     // === Separator ===
@@ -364,9 +370,10 @@ static void _DrawMenuContent() {
     const uint8_t startY = 28;
     const uint8_t itemHeight = 24;
     const uint8_t windowStart = MenuConfig::GetWindowStart();
+    const uint8_t itemCount = MenuConfig::GetItemCount();
     for (uint8_t row = 0; row < MenuConfig::menuVisibleCount; row++) {
         uint8_t index = windowStart + row;
-        if (index >= MenuConfig::menuItemCount) break;
+        if (index >= itemCount) break;
         RenderMenuItem(index, startY + row * itemHeight);
     }
     spr.unloadFont();
@@ -383,7 +390,7 @@ static void _DrawMenuContent() {
         spr.fillRect(trackX, trackTop, trackW, trackH, MenuColors::SEPARATOR);
 
         // 当前项高亮段（按总项数等分轨道；仅在选中/编辑模式显示）
-        const uint8_t count = MenuConfig::menuItemCount;
+        const uint8_t count = itemCount;
         if (MenuConfig::currentMode != MenuConfig::MODE_IDLE && count > 0) {
             int segTop = trackTop + ((int)MenuConfig::selectedIndex * trackH) / count;
             int segBot = trackTop + ((int)(MenuConfig::selectedIndex + 1) * trackH) / count;

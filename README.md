@@ -36,6 +36,7 @@ ESP32C3_USB_METER/
 │   │   ├── hal_lcd.h        # LCD 显示驱动头文件
 │   │   ├── hal_lcd.cpp      # LCD 初始化 / 亮度 / 旋转 / FPS
 │   │   ├── hal_nvs.cpp      # NVS 持久化存储
+│   │   ├── hal_protocol.cpp # USB 协议预留（当前为空实现）
 │   │   ├── hal_timer.cpp    # 阈值计时逻辑
 │   │   ├── hal_uart.cpp     # UART 命令接口 + USB CDC 数据包
 │   │   ├── lcd_menu.h       # 菜单系统头文件
@@ -50,17 +51,18 @@ ESP32C3_USB_METER/
 │   ├── Button2/             # 按钮库（支持单击/双击/长按）
 │   ├── INA226Lib/           # INA226 驱动
 │   ├── INA228Lib/           # INA228 驱动
-│   └── TFT_eSPI/            # TFT LCD 驱动（ST7789）
-└── test/                    # 测试文件
-    ├── t_lcd_menu.h/cpp     # LCD 菜单测试
-    └── wave.cpp             # 波形测试
+│   └── TFT_eSPI/            # TFT LCD 驱动
+└── test/                    # 测试文件（历史备份）
+    └── backup/              # 旧版源码备份
+        ├── PDLib/           # PD 协议库（待开发）
+        └── src/             # 旧版源码
 ```
 
 ## 编译资源占用
 
 ```
-RAM:   [=         ]   5.8% (used 19012 bytes from 327680 bytes)
-Flash: [===       ]  30.6% (used 602350 bytes from 1966080 bytes)
+RAM:   [=         ]   5.8% (used 19028 bytes from 327680 bytes)
+Flash: [===       ]  32.0% (used 629890 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
@@ -85,12 +87,12 @@ Flash: [===       ]  30.6% (used 602350 bytes from 1966080 bytes)
 │       ├── SW0 双击     全局: 循环切换采样率 (Fast → Normal → Slow)
 │       ├── SW1 双击     全局: 切换屏幕方向 (UP ↔ DOWN)
 │       ├── SW0 长按     返回 / 取消
-│       └── SW1 长按     进入菜单 / 确认
+│       └── SW1 长按     进入系统信息 / 菜单: 确认
 │
-├── Task_INA22x (20ms)
+├── Task_INA22x (10ms, 优先级 3)
 │   └── INA228/INA226 数据采集 → 阈值计时更新
 │
-├── Task_UART_Command (10ms)
+├── Task_UART_Command (10ms, 优先级 3)
 │   └── 串口命令解析
 │       ├── brightness:<1-100>  设置亮度
 │       ├── rotation:<0-3>      设置屏幕方向
@@ -100,9 +102,10 @@ Flash: [===       ]  30.6% (used 602350 bytes from 1966080 bytes)
 │       ├── set_start=<mV>,<mA> 设置起始阈值
 │       ├── set_end=<mV>,<mA>   设置结束阈值
 │       ├── threshold           查看阈值配置
-│       └── restart             重启设备
+│       ├── restart             重启设备
+│       └── help                显示命令帮助
 │
-├── Task_Graph_Update (20ms)
+├── Task_Graph_Update (20ms, 优先级 2)
 │   └── 曲线数据采样 → 环形缓冲区 → 自动量程
 │
 └── Task_APP_Run (40ms, ~25 FPS, 优先级 1 — 最低)
@@ -119,7 +122,7 @@ Flash: [===       ]  30.6% (used 602350 bytes from 1966080 bytes)
 
 | 操作 | SW0 (左键) | SW1 (右键) |
 |------|-----------|-----------|
-| 单击 | 主界面: 切换应用 / 菜单: 上/减少 | 主界面: 切换应用 / 菜单: 下/增加 / 波形: 暂停 |
+| 单击 | 主界面: 切换应用 / 菜单: 上/减少 | 菜单: 下/增加 / 波形: 暂停 |
 | **双击** | **全局: 切换采样率** | **全局: 切换屏幕方向** |
 | 长按 | 返回主界面 / 菜单: 取消 | 进入系统信息 / 菜单: 确认 |
 

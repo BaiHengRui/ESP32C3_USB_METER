@@ -45,7 +45,7 @@ void Key1Click(Button2& btn1) {
         if (nowApp == AppState::MENU) {
             switch (MenuConfig::currentMode) {
                 case MenuConfig::MODE_IDLE:
-                    nowApp = AppState::MAIN;
+                    MenuConfig::Menu_Exit();
                     break;
                 case MenuConfig::MODE_SELECT:
                     MenuConfig::SelectPrev();
@@ -85,7 +85,7 @@ void Key2Click(Button2& btn2) {
         if (nowApp == AppState::MENU) {
             switch (MenuConfig::currentMode) {
                 case MenuConfig::MODE_IDLE:
-                    nowApp = AppState::MAIN;
+                    MenuConfig::Menu_Exit();
                     break;
                 case MenuConfig::MODE_SELECT:
                     MenuConfig::SelectPrev();
