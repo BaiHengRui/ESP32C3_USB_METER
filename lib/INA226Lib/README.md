@@ -201,7 +201,7 @@ ina.calibrate(0.01, 5.0);
 
 ### 数据读取
 
-所有读取函数返回值均为 `float` 类型，单位为标准 SI 单位。
+#### 浮点读数（SI 单位）
 
 | 函数 | 返回值 | 单位 |
 |:-----|:------|:----:|
@@ -216,6 +216,39 @@ float shuntV = ina.readShuntVoltage();  // e.g. 0.000025 V (25 µV)
 float curr   = ina.readCurrent();       // e.g. 1.234 A
 float power  = ina.readPower();         // e.g. 14.808 W
 ```
+
+#### 原始寄存器值（`int32_t`）
+
+直接返回 16 位寄存器的原始值（带符号），便于调试或自定义换算：
+
+| 函数 | 对应寄存器 | 说明 |
+|:-----|:-----------|:-----|
+| `readBusVoltageRaw()` | `0x02` | 总线电压原始值 |
+| `readShuntVoltageRaw()` | `0x01` | 分流电压原始值 |
+| `readCurrentRaw()` | `0x04` | 电流原始值 |
+| `readPowerRaw()` | `0x03` | 功率原始值 |
+
+#### 定点整数读数（`int32_t`）
+
+直接以微小单位返回整数结果，避免浮点开销与精度损失：
+
+| 函数 | 返回值 | 单位 | 换算关系 |
+|:-----|:------|:----:|:---------|
+| `readBusMicrovolts()` | 总线电压 | µV | `原始值 × 1250` |
+| `readShuntMicrovolts()` | 分流电压 | µV | `原始值 × 2.5` |
+| `readCurrentMicroamps()` | 电流 | µA | `原始值 × currentLSB × 10⁶` |
+| `readPowerMicrowatts()` | 功率 | µW | `原始值 × powerLSB × 10⁶` |
+
+```cpp
+int32_t busUv   = ina.readBusMicrovolts();    // e.g. 12005000 µV
+int32_t shuntUv = ina.readShuntMicrovolts();  // e.g. 25 µV
+int32_t currUa  = ina.readCurrentMicroamps(); // e.g. 1234000 µA
+int32_t powerUw = ina.readPowerMicrowatts();  // e.g. 14808000 µW
+```
+
+> **注意：**
+> - `readCurrentMicroamps()` / `readPowerMicrowatts()` 依赖 `calibrate()` 写入的 `currentLSB` / `powerLSB`，使用前必须先校准。
+> - 所有 `*Raw()` 与 `*Micro*` 函数返回 `int32_t`，可正确表示负值（如反向电流/功率）。
 
 ---
 

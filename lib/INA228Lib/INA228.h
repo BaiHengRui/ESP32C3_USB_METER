@@ -151,8 +151,19 @@ public:
     float readCharge();            // Coulombs (requires continuous read)
     float readCharge_mAh();         // mAh (requires continuous read)
     float readEnergy_mWh();         // mWh (requires continuous read)
+    int32_t readBusMicrovolts();    // Microvolts uV
+    int32_t readShuntMicrovolts();  // Microvolts uV
+    int32_t readCurrentMicroamps();   // Microamps uA
+    int32_t readPowerMicrowatts();    // Microwatts uW
+    int32_t readBusVoltageRaw();      // Raw 24-bit bus voltage register value
+    int32_t readShuntVoltageRaw();    // Raw 24-bit shunt voltage register value
+    int32_t readCurrentRaw();         // Raw 24-bit current register value
+    int32_t readPowerRaw();           // Raw 24-bit power register value
+    int16_t readTemperatureRaw();      // Raw 16-bit temperature register value
+    int64_t readEnergyRaw();          // Raw 40-bit energy register value
+    int64_t readChargeRaw();          // Raw 40-bit charge register value
     // Compensation and configuration functions
-    uint16_t readShuntTemperatureCoefficient();
+    uint16_t readShuntTemperatureCoefficient();  // Read shunt temperature coefficient in ppm/°C
     bool enableTemperatureCompensation(bool enable);
     bool setShuntTemperatureCoefficient(uint16_t ppm);
     // Alert and diagnostic functions

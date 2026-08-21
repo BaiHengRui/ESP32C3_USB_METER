@@ -186,10 +186,11 @@ static void handle_data(const char* param) {
     (void)param;
 
     HAL::USB_CDC_Data tx;
-    tx.header       = 0xAA;
+    tx.header0       = 0x55;
+    tx.header1       = 0xAA;
+    tx.pack_type   = 0x00; // 单包
+    tx.pack_index  = 0;
     tx.pack_length  = sizeof(tx);
-    tx.snid         = SNID;
-
     tx.temperature_cpu = HAL::Get_CPU_Temperature();
     tx.temperature_adc = INA.temperature;
     tx.voltage         = INA.voltage;

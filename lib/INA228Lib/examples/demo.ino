@@ -18,10 +18,15 @@ void setup() {
                   INA228_MODE_ALL_CONTINUOUS);
     
     // Calibrate with 0.01 ohm shunt and max current 5A
+    // ina.calibrate(0.01, 5.0, ADC_RANGE_40_96mV);
     if (!ina.calibrate(0.01, 5.0)) {
         Serial.println("Calibration failed");
     }
     
+    // Set shunt temperature coefficient
+    // setShuntTemperatureCoefficient(value) value ppm/°C
+    ina.setShuntTemperatureCoefficient(100);
+    ina.enableTemperatureCompensation(true);
     // Read IDs
     Serial.print("Manufacturer ID: 0x");
     Serial.println(ina.readManufacturerID(), HEX);

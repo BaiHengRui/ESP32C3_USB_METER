@@ -43,9 +43,12 @@ namespace HAL
     #pragma pack(push, 1)
     typedef struct
     {
-        uint8_t  header;
+        uint8_t  header0; // 0x55
+        uint8_t  header1; // 0xAA
+        uint8_t  pack_type; // 如果是数据包分块传输，0x01=开始标记，0x02=结束标记，如果是单包传输，0x00=单包
+        uint16_t  pack_index; // 分块传输时的包索引，单包传输时为0
         uint8_t  pack_length;
-        uint32_t snid;
+        // uint32_t snid;
         float    temperature_cpu;
         float    temperature_adc;
         float    voltage;

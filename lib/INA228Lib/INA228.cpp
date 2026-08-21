@@ -230,6 +230,130 @@ float INA228::readEnergy_mWh() {
     return readEnergy() / 3.6f;
 }
 
+// Read bus voltage in microvolts
+// Formula: VBUS(uV) = raw_value * 195.3125 uV = raw_value * 3125 / 16
+int32_t INA228::readBusMicrovolts() {
+    // Read 24-bit register, right-shift by 4 bits
+    uint32_t value = readRegister24(INA228_REG_VBUS) >> 4;
+
+    return (int32_t)(((int64_t)value * 3125) / 16);
+}
+
+// Read shunt voltage in microvolts
+// Formula: VSHUNT(uV) = raw_value * LSB
+// ADCRANGE = 0: LSB = 312.5 nV = 5/16 uV
+// ADCRANGE = 1: LSB = 78.125 nV = 5/64 uV
+int32_t INA228::readShuntMicrovolts() {
+    // Read 24-bit signed register, right-shift by 4 bits
+    int32_t value = readRegister24Signed(INA228_REG_VSHUNT) >> 4;
+
+    // Sign extend for 20-bit value
+    if (value & 0x00080000) {
+        value |= 0xFFF00000;
+    }
+
+    // Check ADC range from CONFIG register
+    uint16_t config = readConfig();
+    bool adcRange = (config >> 4) & 0x01;
+
+    if (adcRange) {
+        // ADCRANGE = 1: LSB = 78.125 nV = 5/64 uV
+        return (int32_t)(((int64_t)value * 5) / 64);
+    } else {
+        // ADCRANGE = 0: LSB = 312.5 nV = 5/16 uV
+        return (int32_t)(((int64_t)value * 5) / 16);
+    }
+}
+
+// Read current in microamps
+// Formula: I(uA) = raw_value * Current_LSB * 1e6
+// Current_LSB is set by calibrate() function
+int32_t INA228::readCurrentMicroamps() {
+    // Read 24-bit signed register, right-shift by 4 bits
+    int32_t value = readRegister24Signed(INA228_REG_CURRENT) >> 4;
+
+    // Sign extend for 20-bit value
+    if (value & 0x00080000) {
+        value |= 0xFFF00000;
+    }
+
+    return (int32_t)(value * currentLSB * 1e6f);
+}
+
+// Read power in microwatts
+// Formula: P(uW) = raw_value * 3.2 * Current_LSB * 1e6
+int32_t INA228::readPowerMicrowatts() {
+    // Read 24-bit unsigned register
+    uint32_t value = readRegister24(INA228_REG_POWER);
+
+    return (int32_t)(value * 3.2f * currentLSB * 1e6f);
+}
+
+// Read raw bus voltage register value
+// Returns the 20-bit VBUS value (lower 4 bits are reserved and shifted out)
+// LSB = 195.3125 µV (from datasheet section 8.1.1)
+int32_t INA228::readBusVoltageRaw() {
+    return (int32_t)(readRegister24(INA228_REG_VBUS) >> 4);
+}
+
+// Read raw shunt voltage register value
+// Returns the sign-extended 20-bit VSHUNT value (lower 4 bits are reserved)
+// LSB = 312.5 nV when ADCRANGE=0, 78.125 nV when ADCRANGE=1 (from datasheet section 8.1.1)
+int32_t INA228::readShuntVoltageRaw() {
+    // Read 24-bit signed register, right-shift by 4 bits
+    int32_t value = readRegister24Signed(INA228_REG_VSHUNT) >> 4;
+
+    // Sign extend for 20-bit value
+    if (value & 0x00080000) {
+        value |= 0xFFF00000;
+    }
+
+    return value;
+}
+
+// Read raw current register value
+// Returns the sign-extended 20-bit CURRENT value (lower 4 bits are reserved)
+// LSB = Current_LSB, set by calibrate() (from datasheet section 8.1.2)
+int32_t INA228::readCurrentRaw() {
+    // Read 24-bit signed register, right-shift by 4 bits
+    int32_t value = readRegister24Signed(INA228_REG_CURRENT) >> 4;
+
+    // Sign extend for 20-bit value
+    if (value & 0x00080000) {
+        value |= 0xFFF00000;
+    }
+
+    return value;
+}
+
+// Read raw power register value
+// Returns the 24-bit POWER value (no reserved bits)
+// LSB = Power_LSB = 3.2 * Current_LSB (from datasheet section 8.1.4)
+int32_t INA228::readPowerRaw() {
+    return (int32_t)readRegister24(INA228_REG_POWER);
+}
+
+// Read raw temperature register value
+// Returns the 16-bit signed (two's complement) DIETEMP value
+// LSB = 7.8125 m°C (from datasheet section 8.1.3)
+int16_t INA228::readTemperatureRaw() {
+    return (int16_t)readRegister16(INA228_REG_DIETEMP);
+}
+
+// Read raw energy register value
+// Returns the 40-bit unsigned ENERGY value
+// LSB = 16 * Power_LSB = 51.2 * Current_LSB (from datasheet section 8.1.5)
+int64_t INA228::readEnergyRaw() {
+    return (int64_t)readRegister40(INA228_REG_ENERGY);
+}
+
+// Read raw charge register value
+// Returns the 40-bit signed CHARGE value
+// LSB = Current_LSB, set by calibrate() (from datasheet section 8.1.6)
+int64_t INA228::readChargeRaw() {
+    return readRegister40Signed(INA228_REG_CHARGE);
+}
+
 // Temperature compensation functions
 
 // Read shunt temperature coefficient setting

@@ -244,7 +244,9 @@ ina.calibrate(0.01, 5.0, ADC_RANGE_40_96mV);
 
 ### 数据读取
 
-所有读取函数返回值均为 `float` 类型，单位为标准 SI 单位。
+库提供三类读取接口：浮点（标准 SI 单位）、整数物理量（µV / µA / µW）以及原始寄存器值（LSB 计数）。
+
+**浮点读取（标准 SI 单位）：**
 
 | 函数 | 返回值 | 单位 |
 |:-----|:------|:----:|
@@ -267,6 +269,46 @@ float temp   = ina.readTemperature();     // e.g. 35.2 °C
 float energy = ina.readEnergy();          // e.g. 1234.5 J
 float charge = ina.readCharge_mAh();      // e.g. 500.0 mAh
 ```
+
+**整数物理量读取（固定单位，返回整数）：**
+
+| 函数 | 返回值 | 单位 | 返回类型 |
+|:-----|:------|:----:|:-------:|
+| `readBusMicrovolts()` | 总线电压 | µV | `int32_t` |
+| `readShuntMicrovolts()` | 分流电压 | µV | `int32_t` |
+| `readCurrentMicroamps()` | 电流 | µA | `int32_t` |
+| `readPowerMicrowatts()` | 功率 | µW | `int32_t` |
+
+```cpp
+int32_t busUv   = ina.readBusMicrovolts();    // e.g. 12005000 µV
+int32_t shuntUv = ina.readShuntMicrovolts();  // e.g. 25 µV
+int32_t currUa  = ina.readCurrentMicroamps(); // e.g. 1234000 µA
+int32_t powerUw = ina.readPowerMicrowatts();  // e.g. 14808000 µW
+```
+
+**原始寄存器值读取（LSB 计数，不做换算）：**
+
+| 函数 | 返回值 | 返回类型 |
+|:-----|:------|:-------:|
+| `readBusVoltageRaw()` | VBUS 20-bit 原始值 | `int32_t` |
+| `readShuntVoltageRaw()` | VSHUNT 20-bit 原始值（有符号） | `int32_t` |
+| `readCurrentRaw()` | CURRENT 20-bit 原始值（有符号） | `int32_t` |
+| `readPowerRaw()` | POWER 24-bit 原始值 | `int32_t` |
+| `readTemperatureRaw()` | DIETEMP 16-bit 原始值（有符号） | `int16_t` |
+| `readEnergyRaw()` | ENERGY 40-bit 原始值 | `int64_t` |
+| `readChargeRaw()` | CHARGE 40-bit 原始值（有符号） | `int64_t` |
+
+```cpp
+int32_t busRaw    = ina.readBusVoltageRaw();  // e.g. 61440（×195.3125 µV ≈ 12.0 V）
+int64_t chargeRaw = ina.readChargeRaw();      // 原始计数
+```
+
+> **换算提示：** 原始值乘以对应 LSB 即可得到物理量：
+> - 总线电压 LSB = 195.3125 µV
+> - 分流电压 LSB = 312.5 nV（±163.84 mV 量程）或 78.125 nV（±40.96 mV 量程）
+> - 电流 / 电荷 LSB = `Current_LSB`（由 `calibrate()` 计算）
+> - 功率 LSB = `Power_LSB` = 3.2 × `Current_LSB`
+> - 能量 LSB = 16 × `Power_LSB` = 51.2 × `Current_LSB`
 
 > **注意：** 能量和电荷的硬件累计需要芯片工作在连续模式下。可使用 `resetAccumulation()` 随时清零。
 

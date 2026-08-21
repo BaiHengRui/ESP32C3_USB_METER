@@ -101,7 +101,7 @@ class INA226
 	ina226_mode_t getMode(void);
     
 	bool enableShuntOverLimitAlert(void);
-        bool enableShuntUnderLimitAlert(void);
+    bool enableShuntUnderLimitAlert(void);
 	bool enableBusOvertLimitAlert(void);
 	bool enableBusUnderLimitAlert(void);
 	bool enableOverPowerLimitAlert(void);
@@ -122,6 +122,14 @@ class INA226
 	float readShuntVoltage(void);
 	float readPower(void);
 	float readBusVoltage(void);
+	int32_t readBusVoltageRaw(void);
+	int32_t readShuntVoltageRaw(void);
+	int32_t readCurrentRaw(void);
+	int32_t readPowerRaw(void);
+	int32_t readBusMicrovolts(void);
+	int32_t readShuntMicrovolts(void);
+	int32_t readCurrentMicroamps(void);
+	int32_t readPowerMicrowatts(void);
 
 	float getMaxPossibleCurrent(void);
 	float getMaxCurrent(void);

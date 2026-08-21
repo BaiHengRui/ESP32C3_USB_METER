@@ -139,6 +139,46 @@ float INA226::readBusVoltage(void)
     return (voltage * 0.00125);
 }
 
+int32_t INA226::readBusVoltageRaw(void)
+{
+    return readRegister16(INA226_REG_BUSVOLTAGE);
+}
+
+int32_t INA226::readShuntVoltageRaw(void)
+{
+    return readRegister16(INA226_REG_SHUNTVOLTAGE);
+}
+
+int32_t INA226::readCurrentRaw(void)
+{
+    return readRegister16(INA226_REG_CURRENT);
+}
+
+int32_t INA226::readPowerRaw(void)
+{
+    return readRegister16(INA226_REG_POWER);
+}
+
+int32_t INA226::readBusMicrovolts(void)
+{
+    return (int32_t)readRegister16(INA226_REG_BUSVOLTAGE) * 1250L;
+}
+
+int32_t INA226::readShuntMicrovolts(void)
+{
+    return (int32_t)(readRegister16(INA226_REG_SHUNTVOLTAGE) * 2.5f);
+}
+
+int32_t INA226::readCurrentMicroamps(void)
+{
+    return (int32_t)(readRegister16(INA226_REG_CURRENT) * currentLSB * 1000000.0f);
+}
+
+int32_t INA226::readPowerMicrowatts(void)
+{
+    return (int32_t)(readRegister16(INA226_REG_POWER) * powerLSB * 1000000.0f);
+}
+
 ina226_averages_t INA226::getAverages(void)
 {
     uint16_t value;
