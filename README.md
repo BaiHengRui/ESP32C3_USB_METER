@@ -24,6 +24,10 @@ Releases里存放编译好的固件，可以使用flash_download_tool工具进�
 ```
 ESP32C3_USB_METER/
 ├── platformio.ini           # PlatformIO 项目配置
+├── minspiffs.csv            # 分区表 (NVS / OTA / app / SPIFFS 2MB / coredump)
+├── CHANGELOG.md             # 更新日志
+├── LICENSE.md               # 开源协议
+├── include/                 # 根目录头文件 (预留)
 ├── src/
 │   ├── main.cpp             # FreeRTOS 任务入口
 │   ├── hal/                 # 硬件抽象层
@@ -36,6 +40,7 @@ ESP32C3_USB_METER/
 │   │   ├── hal_lcd.h        # LCD 显示驱动头文件
 │   │   ├── hal_lcd.cpp      # LCD 初始化 / 亮度 / 旋转 / FPS
 │   │   ├── hal_nvs.cpp      # NVS 持久化存储
+│   │   ├── hal_storage.cpp  # SPIFFS 离线记录模块（多条目/会话）
 │   │   ├── hal_protocol.cpp # USB 协议预留（当前为空实现）
 │   │   ├── hal_timer.cpp    # 阈值计时逻辑
 │   │   ├── hal_uart.cpp     # UART 命令接口 + USB CDC 数据包
@@ -61,8 +66,8 @@ ESP32C3_USB_METER/
 ## 编译资源占用
 
 ```
-RAM:   [=         ]   5.8% (used 19028 bytes from 327680 bytes)
-Flash: [===       ]  32.0% (used 629974 bytes from 1966080 bytes)
+RAM:   [=         ]   6.3% (used 20636 bytes from 327680 bytes)
+Flash: [===       ]  34.0% (used 669040 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
