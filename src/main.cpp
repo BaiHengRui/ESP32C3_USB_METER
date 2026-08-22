@@ -8,6 +8,7 @@ TaskHandle_t xTaskUART = NULL;
 TaskHandle_t xTaskAPP = NULL;
 TaskHandle_t xTaskButton = NULL;
 TaskHandle_t xTaskGraph = NULL;
+TaskHandle_t xTaskStorage = NULL;
 
 // SemaphoreHandle_t xINADataMutex = nullptr;
 
@@ -16,18 +17,21 @@ void Task_UART_Command(void *pvParameters);
 void Task_APP_Run(void *pvParameters);
 void Task_Button_Click(void *pvParameters);
 void Task_Graph_Update(void *pvParameters);
+void Task_Storage(void *pvParameters);
 
 void setup() {
   // put your setup code here, to run once:
   HAL::Sys_Init();
   HAL::Button_Init();
   HAL::INA22x_Init();
+  HAL::Storage_Init(); // SPIFFS 离线记录初始化(队列/互斥锁/数据文件)
   HAL::LCD_Init();
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
   xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 4096, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID
   xTaskCreatePinnedToCore(Task_UART_Command, "Task_UART_Command", 4096, NULL, 3, &xTaskUART, 0);
   xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 4, &xTaskButton, 0); //Max priority for button click handling to ensure responsiveness
   xTaskCreatePinnedToCore(Task_Graph_Update, "Task_Graph_Update", 2048, NULL, 2, &xTaskGraph, 0);
+  xTaskCreatePinnedToCore(Task_Storage, "Task_Storage", 4096, NULL, 2, &xTaskStorage, 0);
   xTaskCreatePinnedToCore(Task_APP_Run, "Task_APP_Run", 4096, NULL, 1, &xTaskAPP, 0);
   vTaskDelete(NULL); // Delete the default loop task since we will be using our own tasks for handling different functionalities
 }
@@ -43,6 +47,8 @@ void Task_INA22x(void *pvParameters)
   {
     HAL::INA22x_GetData(&INA);
     HAL::Threshold_Timing_Update();  // 更新计时阈值状态
+    HAL::Storage_Sample();           // 按记录间隔采样入队(1s)
+    HAL::Storage_AutoControl();      // 阈值自动开始/停止记录
     taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(10)); // delay for 10ms-max 100sps
   }
@@ -90,5 +96,14 @@ void Task_Graph_Update(void *pvParameters)
     HAL::Update_Graph_Data();
     taskYIELD();
     vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(20)); // delay for 20ms
+  }
+}
+
+void Task_Storage(void *pvParameters)
+{
+  while (1)
+  {
+    HAL::Storage_Task();  // 阻塞接收队列并落盘
+    taskYIELD();
   }
 }

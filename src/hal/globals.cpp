@@ -11,7 +11,7 @@ uint64_t SNID(0);
 int32_t  nowTime(0), lastTime(0);
 int64_t  nowTime_us(0), lastTime_us(0);
 int32_t  startTime(0);
-uint8_t  nowApp(0), maxApp(3);
+uint8_t  nowApp(0), maxApp(4);
 
 HAL::INA22x_Data INA;
 
@@ -41,6 +41,16 @@ uint32_t thrEndVMv       = 0;
 uint32_t thrEndIMa       = 0;
 bool     thrTimingActive = false;
 uint64_t thrElapsedUs    = 0;
+
+// Storage (SPIFFS 离线记录)
+uint32_t          record_interval_s    = 1;      // 默认 1 秒
+volatile bool     storage_full         = false;
+volatile bool     storage_exporting    = false;
+volatile uint32_t storage_record_count = 0;
+volatile uint32_t storage_file_bytes   = 0;
+uint8_t          threshold_auto        = 0;   // 默认关闭
+QueueHandle_t     xStorageQueue        = NULL;
+SemaphoreHandle_t xStorageMutex        = NULL;
 
 // Toast
 char     toastMessage[40] = "";

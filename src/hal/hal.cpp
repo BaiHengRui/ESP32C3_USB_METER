@@ -138,6 +138,9 @@ void HAL::APP_Run(){
     case AppState::WAVEGRAPH:
         UI::WaveGraph();
         break;
+    case AppState::STOREAGE_DATA:
+        UI::Storage_Data();
+        break;
     case AppState::MENU:
         UI::Menu();
         break;

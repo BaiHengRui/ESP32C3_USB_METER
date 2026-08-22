@@ -7,6 +7,7 @@
 #include "esp_ota_ops.h"
 #include <Preferences.h>
 #include <Wire.h>
+#include <SPIFFS.h>
 
 // 硬件引脚
 #define I2C_SDA_PIN  7
@@ -17,7 +18,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.2.0"
+#define SOFTWARE_VERSION "v2.3.0"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -39,6 +40,33 @@ namespace HAL
         uint16_t device_id;
         uint16_t status;
     } INA22x_Data;
+
+    #pragma pack(push, 1)
+    typedef struct
+    {
+        uint8_t  magic;             // 0x5A 记录完整性标记
+        uint32_t seq;               // 记录序号(文件内自增)
+        uint64_t timestamp_us;      // 采集时刻(esp_timer, us)
+        float    voltage;           // V
+        float    current;           // A
+        float    power;             // W
+        float    temperature;       // INA ADC 温度(°C)
+        float    temperature_cpu;   // CPU 温度(°C)
+        float    energy_mWh;        // 累计能量
+        float    charge_mAh;        // 累计电荷
+        bool     current_direction; // true=left, false=right
+        uint8_t  checksum;          // 异或校验
+    } Storage_Record;
+
+    typedef struct
+    {
+        uint8_t  magic0;       // 'M'
+        uint8_t  magic1;       // 'T'
+        uint8_t  version;      // 文件格式版本
+        uint8_t  record_size;  // sizeof(Storage_Record)
+        uint32_t reserved;     // 保留
+    } Storage_FileHeader;
+    #pragma pack(pop)
 
     #pragma pack(push, 1)
     typedef struct
@@ -88,6 +116,46 @@ namespace HAL
     /* USB */
     void UART_Command();
 
+    /* Storage (SPIFFS 离线记录, 多条目) */
+    typedef struct
+    {
+        bool     recording;        // 正在记录
+        uint32_t entry_count;      // 条目总数
+        uint32_t total_records;    // 总记录数
+        uint32_t total_bytes;      // 总字节数
+        uint32_t selected;         // 选中条目(0-based)
+        uint32_t sel_index;        // 选中条目编号
+        uint32_t sel_records;      // 选中条目记录数
+        uint32_t sel_bytes;        // 选中条目字节数
+        uint32_t rec_elapsed_sec;  // 本次记录时长(秒)
+    } Storage_Info;
+
+    // 存储操作结果码
+    enum Storage_Result : uint8_t {
+        SR_OK = 0,       // 成功
+        SR_STARTED,      // 已开始记录
+        SR_SAVED,        // 已停止并保存
+        SR_DELETED,      // 已删除
+        SR_EMPTY,        // 无条目
+        SR_FULL,         // 存储已满
+        SR_RECORDING,    // 正在记录中
+        SR_BUSY,         // 导出进行中
+        SR_ERROR,        // 失败
+    };
+
+    void     Storage_Init();
+    void     Storage_Sample();          // 采集任务周期调用, 按记录间隔入队
+    void     Storage_AutoControl();     // 阈值自动开始/停止记录(采集任务周期调用)
+    void     Storage_Task();            // 存储任务主体(阻塞在队列)
+    void     Storage_Flush();           // 刷新 RAM 缓冲到文件
+    Storage_Result Storage_ToggleRecord();   // SW1 长按: 开始/停止记录
+    void     Storage_SelectNext();           // SW1 短按: 选中下一条目
+    Storage_Result Storage_DeleteSelected(); // SW1 双击: 删除选中条目
+    const Storage_Info& Storage_GetInfo();
+    bool     Storage_Export(const char* filename); // 分块导出
+    bool     Storage_Erase();
+    bool     Storage_IsFull();
+
     /* PD */
     // void PD_Init();
     // void PD_GetData(PDO_Data *data);
@@ -128,8 +196,9 @@ namespace AppState
 {
     constexpr uint8_t MAIN        = 0;
     constexpr uint8_t WAVEGRAPH   = 1;
-    constexpr uint8_t MENU        = 2;
-    constexpr uint8_t SYSTEM_INFO = 3;
+    constexpr uint8_t STOREAGE_DATA = 2;
+    constexpr uint8_t MENU        = 3;
+    constexpr uint8_t SYSTEM_INFO = 4;
 }
 
 // ============================================================

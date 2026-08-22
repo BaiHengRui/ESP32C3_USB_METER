@@ -13,7 +13,7 @@ Button2 btn1;
 Button2 btn2;
 
 // uint16_t triggerTime = 500;
-uint16_t timeOut = 2000;
+uint16_t timeOut = 1000;
 
 void HAL::Button_Init(){
     pinMode(BUTTON_SW0, INPUT_PULLDOWN);
@@ -73,6 +73,8 @@ void Key1Click(Button2& btn1) {
             }
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
+        } else if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_SelectNext();
         }
     }
 }
@@ -113,6 +115,8 @@ void Key2Click(Button2& btn2) {
             }
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
+        } else if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_SelectNext();
         }
     }
 }
@@ -152,6 +156,11 @@ void Key1LongPress(Button2& btn1) {
             }
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
+        } else if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_Result r = HAL::Storage_ToggleRecord();
+            if (r == HAL::SR_STARTED)    HAL::ShowToast("Start");
+            else if (r == HAL::SR_SAVED) HAL::ShowToast("Saved");
+            else if (r == HAL::SR_FULL)  HAL::ShowToast("NVS Full!");
         } else if (nowApp == AppState::MAIN) {
             nowApp = AppState::SYSTEM_INFO;
         }
@@ -174,6 +183,13 @@ void Key1DoubleClick(Button2& btn1) {
         snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
     } else {
+        if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_Result r = HAL::Storage_DeleteSelected();
+            if (r == HAL::SR_DELETED)        HAL::ShowToast("Delete");
+            else if (r == HAL::SR_RECORDING) HAL::ShowToast("Stop REC First");
+            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("No entries");
+            return;
+        }
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
@@ -198,6 +214,13 @@ void Key2DoubleClick(Button2& btn2) {
         snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
     } else {
+        if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_Result r = HAL::Storage_DeleteSelected();
+            if (r == HAL::SR_DELETED)        HAL::ShowToast("Delete");
+            else if (r == HAL::SR_RECORDING) HAL::ShowToast("Stop REC First");
+            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("No entries");
+            return;
+        }
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
@@ -241,6 +264,11 @@ void Key2LongPress(Button2& btn2) {
             }
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
+        } else if (nowApp == AppState::STOREAGE_DATA) {
+            HAL::Storage_Result r = HAL::Storage_ToggleRecord();
+            if (r == HAL::SR_STARTED)    HAL::ShowToast("开始");
+            else if (r == HAL::SR_SAVED) HAL::ShowToast("保存");
+            else if (r == HAL::SR_FULL)  HAL::ShowToast("FFS Full!");
         } else if (nowApp == AppState::MAIN) {
             nowApp = AppState::SYSTEM_INFO;
         }

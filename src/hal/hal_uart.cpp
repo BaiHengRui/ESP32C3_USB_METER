@@ -17,6 +17,10 @@ static void handle_info(const char* param);
 static void handle_restart(const char* param);
 static void handle_help(const char* param);
 static void handle_data(const char* param);
+static void handle_record(const char* param);
+static void handle_export_list(const char* param);
+static void handle_export_erase(const char* param);
+static void handle_export(const char* param);
 
 // ============================================================
 // 命令映射表
@@ -38,6 +42,10 @@ static const CmdEntry cmdTable[] = {
     { "restart",     handle_restart,       false },
     { "help",        handle_help,          false },
     { "data",        handle_data,          false },
+    { "record:",     handle_record,        true  },
+    { "export:list", handle_export_list,   false },
+    { "export:erase",handle_export_erase,  false },
+    { "export",      handle_export,        true  },
 };
 static const int cmdCount = sizeof(cmdTable) / sizeof(cmdTable[0]);
 
@@ -178,6 +186,10 @@ static void handle_help(const char* param) {
     Serial.println("info                -设备信息");
     Serial.println("restart             -重启");
     Serial.println("data                -发送数据包");
+    Serial.println("record:<0-3600>     -设置离线记录间隔(秒), 0=关闭");
+    Serial.println("export:list         -列出存储文件");
+    Serial.println("export:erase        -清除全部条目");
+    Serial.println("export[:<编号>]     -分块导出条目(默认当前选中条目)");
     Serial.println("help                -显示此帮助信息");
     Serial.println("=========================\n");
 }
@@ -212,6 +224,62 @@ static void handle_data(const char* param) {
     if (Serial.availableForWrite() >= (int)sizeof(tx)) {
         Serial.write(bytes, sizeof(tx));
     }
+}
+
+static void handle_record(const char* param) {
+    int value = atoi(param);
+    if (value < 0 || value > 3600) {
+        Serial.println("错误: record 值必须为 0-3600 (秒)");
+        return;
+    }
+    record_interval_s = (uint32_t)value;
+    HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
+    if (record_interval_s == 0) {
+        Serial.println("离线记录: 已关闭");
+    } else {
+        Serial.printf("离线记录间隔: %lu 秒 (已保存)\n", (unsigned long)record_interval_s);
+    }
+}
+
+static void handle_export_list(const char* param) {
+    (void)param;
+    Serial.println("====== 存储文件列表 ======");
+    File root = SPIFFS.open("/");
+    File file = root.openNextFile();
+    if (!file) {
+        Serial.println("(无文件)");
+    }
+    while (file) {
+        Serial.printf("  %s  %u bytes\n", file.name(), (unsigned)file.size());
+        file = root.openNextFile();
+    }
+    Serial.printf("SPIFFS 占用: %u / %u bytes\n", (unsigned)SPIFFS.usedBytes(), (unsigned)SPIFFS.totalBytes());
+    Serial.println("==========================");
+}
+
+static void handle_export_erase(const char* param) {
+    (void)param;
+    if (HAL::Storage_Erase()) {
+        Serial.println("全部条目已清除");
+        HAL::ShowToast("数据已清除");
+    } else {
+        Serial.println("清除失败(记录中或导出中)");
+    }
+}
+
+static void handle_export(const char* param) {
+    HAL::ShowToast("导出中");
+
+    // 支持 export[:<编号>] 导出指定条目, 否则导出当前选中条目
+    while (*param == ':' || *param == ' ') param++;
+    int idx = atoi(param);
+    char path[24] = {0};
+    if (idx > 0) {
+        snprintf(path, sizeof(path), "/m%04u.dat", (unsigned)idx);
+    }
+
+    bool ok = HAL::Storage_Export(idx > 0 ? path : nullptr);
+    HAL::ShowToast(ok ? "已导出" : "导出失败");
 }
 
 // ============================================================

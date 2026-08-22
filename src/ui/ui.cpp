@@ -317,6 +317,93 @@ void UI::System_Info(){
     spr.deleteSprite();
 }
 
+// 绘制离线存储页面内容 (带容量进度条)
+static void _DrawStorageContent() {
+    const HAL::Storage_Info& si = HAL::Storage_GetInfo();
+    uint32_t used  = SPIFFS.usedBytes();
+    uint32_t total = SPIFFS.totalBytes();
+    uint32_t pct   = (total > 0) ? (uint32_t)((uint64_t)used * 100 / total) : 0;
+
+    spr.setTextDatum(TL_DATUM);
+    spr.fillScreen(0x0000);
+
+    // 标题 + 状态徽标
+    spr.loadFont(Font1_14);
+    spr.setTextColor(0xFFFF);
+    spr.setCursor(8, 4);
+    spr.print("数据保存");
+
+    const char* stText;
+    uint16_t stColor;
+    if (si.recording)      { stColor = 0x07FF; stText = "REC"; }
+    else if (storage_full) { stColor = 0xF800; stText = "FULL"; }
+    else                   { stColor = 0x07E0; stText = "IDLE"; }
+    spr.setTextColor(stColor);
+    spr.setCursor(198, 4);
+    spr.print(stText);
+
+    // 容量进度条
+    int bx = 8, by = 28, bw = 224, bh = 16;
+    spr.fillRoundRect(bx, by, bw, bh, 4, 0x3186);              // 轨道
+    int fillW = (int)((uint64_t)bw * used / (total > 0 ? total : 1));
+    if (fillW > 0) {
+        uint16_t barColor = si.recording ? 0x07FF : (storage_full ? 0xF800 : 0x07E0);
+        spr.fillRoundRect(bx, by, fillW, bh, 4, barColor);     // 填充
+    }
+    spr.drawRoundRect(bx, by, bw, bh, 4, 0xC618);              // 边框
+
+    char pctBuf[12];
+    snprintf(pctBuf, sizeof(pctBuf), "%lu%%", (unsigned long)pct);
+    spr.setTextDatum(MC_DATUM);
+    spr.setTextColor(0xFFFF);
+    spr.drawString(pctBuf, bx + bw / 2, by + bh / 2 + 1);
+    spr.setTextDatum(TL_DATUM);
+
+    // 统计
+    spr.loadFont(Font1_12);
+    spr.setTextColor(0xC618);
+    spr.setCursor(8, 54);
+    spr.printf("Entries:%lu  Rec:%lu", (unsigned long)si.entry_count, (unsigned long)si.total_records);
+    spr.setCursor(8, 72);
+    spr.printf("Used:%lu/%lu KB", (unsigned long)(used / 1024), (unsigned long)(total / 1024));
+
+    // 选中条目信息
+    if (si.entry_count > 0) {
+        spr.setTextColor(0x07FF);
+        spr.setCursor(8, 92);
+        spr.printf("#%04lu  Rec:%lu", (unsigned long)si.sel_index, (unsigned long)si.sel_records);
+        spr.setTextColor(0xC618);
+        spr.setCursor(128, 92);
+        spr.printf("%lu KB", (unsigned long)(si.sel_bytes / 1024));
+    } else {
+        spr.setTextColor(0xF800); //RED
+        spr.setCursor(8, 92);
+        spr.print("NO DATA");
+    }
+
+    // 记录中: 已进行时长 + 采样间隔
+    if (si.recording) {
+        spr.setTextColor(0x07FF);
+        spr.setCursor(8, 108);
+        spr.printf("Rec:%lus  Int:%lus", (unsigned long)si.rec_elapsed_sec, (unsigned long)record_interval_s);
+    }
+
+    // 底部按键提示
+    spr.setTextColor(0x7BEF);
+    spr.setCursor(6, 122);
+    spr.print("SW1: sel/rec/del");
+    spr.unloadFont();
+}
+
+// 绘制离线存储页面
+void UI::Storage_Data(){
+    spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
+    _DrawStorageContent();
+    UI::DrawToast();
+    spr.pushSprite(0, 0);
+    spr.deleteSprite();
+}
+
 // 绘制菜单项
 void RenderMenuItem(uint8_t index, int yPos) {
     bool isSelected = (MenuConfig::currentMode != MenuConfig::MODE_IDLE) && (index == MenuConfig::selectedIndex);
@@ -447,6 +534,9 @@ static void _DrawPageContent(uint8_t app) {
             break;
         case AppState::SYSTEM_INFO:
             _DrawSystemInfoContent();
+            break;
+        case AppState::STOREAGE_DATA:
+            _DrawStorageContent();
             break;
         default:
             _DrawMainContent();

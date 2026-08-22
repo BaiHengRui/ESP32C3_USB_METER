@@ -47,6 +47,16 @@ extern uint32_t thrEndIMa;
 extern bool     thrTimingActive;
 extern uint64_t thrElapsedUs;
 
+// Storage (SPIFFS 离线记录)
+extern uint32_t           record_interval_s;   // 记录间隔(秒), 0=关闭
+volatile extern bool      storage_full;        // 已满, 停止记录
+volatile extern bool      storage_exporting;   // 导出进行中
+volatile extern uint32_t  storage_record_count;// 当前记录数
+volatile extern uint32_t  storage_file_bytes;  // 当前文件字节数
+extern uint8_t            threshold_auto;      // 阈值自动开始/停止记录 0=关 1=开
+extern QueueHandle_t      xStorageQueue;
+extern SemaphoreHandle_t  xStorageMutex;
+
 // Toast 通知系统
 #define TOAST_DURATION_MS 1500
 

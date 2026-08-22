@@ -22,6 +22,11 @@ void HAL::NVS_Load() {
     thrStartIMa = HAL::Sys_NVS_ReadUInt("thr_si", 0);
     thrEndVMv   = HAL::Sys_NVS_ReadUInt("thr_ev", 0);
     thrEndIMa   = HAL::Sys_NVS_ReadUInt("thr_ei", 0);
+    // 离线记录间隔(秒), 0=关闭
+    record_interval_s = HAL::Sys_NVS_ReadUInt("record_s", 1);
+    if (record_interval_s > 3600) record_interval_s = 1;
+    // 阈值自动开始/停止记录
+    threshold_auto = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0);
 }
 
 // NVS Read/Write Helper Functions

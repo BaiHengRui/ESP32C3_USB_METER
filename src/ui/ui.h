@@ -6,9 +6,10 @@
 namespace UI
 {
     void ShowMain();
-    void System_Info();
     void WaveGraph();
     void Menu();
+    void Storage_Data();
+    void System_Info();
     void DrawToast();
     void TransitionTo(uint8_t oldApp, uint8_t newApp);
 } // namespace UI

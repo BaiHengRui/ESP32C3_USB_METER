@@ -14,8 +14,8 @@ namespace MenuConfig {
     // =====================================================================
 
     enum : uint8_t { KIND_MENU, KIND_VALUE, KIND_BACK, KIND_ACTION }; // 菜单项类型
-    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI };        // 编辑项 ID
-    enum : uint8_t { ACT_SYSTEM_INFO };                               // 动作 ID
+    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI, ID_RECORD, ID_THRESH_AUTO }; // 编辑项 ID
+    enum : uint8_t { ACT_SYSTEM_INFO, ACT_CLEAR_DATA };               // 动作 ID
 
     struct Item {
         const char* title;
@@ -28,6 +28,7 @@ namespace MenuConfig {
         { "显示",     KIND_MENU,   1 },               // → 组 1
         { "采样",     KIND_MENU,   2 },               // → 组 2
         { "动效",     KIND_MENU,   3 },               // → 组 3
+        { "数据",     KIND_MENU,   4 },               // → 组 4
         { "返回",     KIND_BACK,   0 },
     };
     // —— 组 1：显示 ——
@@ -46,6 +47,13 @@ namespace MenuConfig {
         { "动画效果", KIND_VALUE, ID_UI },
         { "返回",     KIND_BACK,  0 },
     };
+    // —— 组 4：存储 ——
+    static const Item STORAGE_ITEMS[] = {
+        { "保存时间", KIND_VALUE,  ID_RECORD },
+        { "阈值自动", KIND_VALUE,  ID_THRESH_AUTO },
+        { "清除数据", KIND_ACTION, ACT_CLEAR_DATA },
+        { "返回",     KIND_BACK,   0 },
+    };
 
     struct Group {
         const Item* items;
@@ -54,10 +62,11 @@ namespace MenuConfig {
     };
 
     static const Group GROUPS[] = {
-        { ROOT_ITEMS,      4, "设置"     },   // 组 0 / 5个子项
+        { ROOT_ITEMS,      5, "设置"     },   // 组 0
         { DISPLAY_ITEMS,   3, "显示"     },   // 组 1
         { SAMPLING_ITEMS,  2, "采样速度" },   // 组 2
         { INTERFACE_ITEMS, 2, "动画效果" },   // 组 3
+        { STORAGE_ITEMS,   4, "存储"     },   // 组 4
     };
 
     // =====================================================================
@@ -72,6 +81,8 @@ namespace MenuConfig {
     static int16_t  tempRotation   = 3;
     static int16_t  tempSampleMode = 0;
     static int16_t  tempUIEffects  = 1;
+    static int16_t  tempRecord     = 0;   // 记录时间选项索引 0-4
+    static int16_t  tempThreshAuto = 0;   // 阈值自动 0/1
 
     // 当前组
     static const Group& cur()      { return GROUPS[currentGroup]; }
@@ -81,6 +92,17 @@ namespace MenuConfig {
     // 编辑项行为：显示 / 调整 / 保存 的规则集中在这里
     // =====================================================================
 
+    // 记录时间选项(秒)
+    static const uint32_t recordChoices[]    = { 1, 5, 10, 30, 60 };
+    static const uint8_t  recordChoiceCount  = 5;
+
+    static uint8_t recordSecondsToIndex(uint32_t sec) {
+        for (uint8_t i = 0; i < recordChoiceCount; i++) {
+            if (sec == recordChoices[i]) return i;
+        }
+        return 0;
+    }
+
     // 把 NVS 当前值读入临时值
     static void loadTemps() {
         tempBrightness = HAL::Sys_NVS_Valid("light", 50, 100, 1);
@@ -89,6 +111,8 @@ namespace MenuConfig {
         tempSampleMode = HAL::Sys_NVS_Valid("sample_mode", 0);
         if (tempSampleMode > 2) tempSampleMode = 0;
         tempUIEffects  = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
+        tempRecord     = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1));
+        tempThreshAuto = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0);
     }
 
     // 显示某项的值（编辑中显示临时值，否则显示已存值）
@@ -105,19 +129,23 @@ namespace MenuConfig {
         // 取值：编辑中 → 临时值；否则 → NVS
         if (currentMode == MODE_EDIT && index == selectedIndex) {
             switch (id) {
-                case ID_BRIGHT: v = tempBrightness; break;
-                case ID_ROTATE: v = tempRotation;   break;
-                case ID_SAMPLE: v = tempSampleMode; break;
-                case ID_UI:     v = tempUIEffects;  break;
-                default:        v = 0;
+                case ID_BRIGHT:      v = tempBrightness; break;
+                case ID_ROTATE:      v = tempRotation;   break;
+                case ID_SAMPLE:      v = tempSampleMode; break;
+                case ID_UI:          v = tempUIEffects;  break;
+                case ID_RECORD:      v = tempRecord;     break;
+                case ID_THRESH_AUTO: v = tempThreshAuto; break;
+                default:             v = 0;
             }
         } else {
             switch (id) {
-                case ID_BRIGHT: v = HAL::Sys_NVS_Valid("light", 50, 100, 1);  break;
-                case ID_ROTATE: v = HAL::Sys_NVS_Valid("rotation", 3, 3);     break;
-                case ID_SAMPLE: v = HAL::Sys_NVS_Valid("sample_mode", 0);     break;
-                case ID_UI:     v = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0); break;
-                default:        v = 0;
+                case ID_BRIGHT:      v = HAL::Sys_NVS_Valid("light", 50, 100, 1);  break;
+                case ID_ROTATE:      v = HAL::Sys_NVS_Valid("rotation", 3, 3);     break;
+                case ID_SAMPLE:      v = HAL::Sys_NVS_Valid("sample_mode", 0);     break;
+                case ID_UI:          v = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0); break;
+                case ID_RECORD:      v = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1)); break;
+                case ID_THRESH_AUTO: v = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0); break;
+                default:             v = 0;
             }
         }
 
@@ -127,6 +155,13 @@ namespace MenuConfig {
             case ID_ROTATE: sprintf(buffer, "(%d)%s", v, v == 1 ? "方向下" : "方向上"); break;
             case ID_SAMPLE: if (v > 2) v = 0; sprintf(buffer, "%s", sampleNames[v]); break;
             case ID_UI:     sprintf(buffer, "%s", v ? "开启" : "关闭"); break;
+            case ID_RECORD: {
+                if (v < 0 || v >= (int16_t)recordChoiceCount) v = 0;
+                static const char* recNames[] = {"1s", "5s", "10s", "30s", "60s"};
+                sprintf(buffer, "%s", recNames[v]);
+                break;
+            }
+            case ID_THRESH_AUTO: sprintf(buffer, "%s", v ? "开" : "关"); break;
         }
     }
 
@@ -149,6 +184,12 @@ namespace MenuConfig {
                 break;
             case ID_UI:
                 tempUIEffects = tempUIEffects ? 0 : 1;
+                break;
+            case ID_RECORD:
+                tempRecord = (tempRecord + (delta > 0 ? 1 : (int16_t)(recordChoiceCount - 1))) % recordChoiceCount;
+                break;
+            case ID_THRESH_AUTO:
+                tempThreshAuto = tempThreshAuto ? 0 : 1;
                 break;
         }
     }
@@ -174,6 +215,14 @@ namespace MenuConfig {
                     HAL::Sys_NVS_Write("ui_effects", tempUIEffects);
                     ui_effects = tempUIEffects;
                     break;
+                case ID_RECORD:
+                    record_interval_s = recordChoices[tempRecord];
+                    HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
+                    break;
+                case ID_THRESH_AUTO:
+                    HAL::Sys_NVS_Write("thr_auto", tempThreshAuto);
+                    threshold_auto = tempThreshAuto;
+                    break;
             }
         } else {
             // 取消：亮度预览已实时改变，恢复为已存值
@@ -190,6 +239,13 @@ namespace MenuConfig {
             case ACT_SYSTEM_INFO:
                 Menu_Init();                    // 重置菜单状态
                 nowApp = AppState::SYSTEM_INFO; // 跳转到系统信息页
+                break;
+            case ACT_CLEAR_DATA:
+                if (HAL::Storage_Erase()) {
+                    HAL::ShowToast("清除");
+                } else {
+                    HAL::ShowToast("清除失败");
+                }
                 break;
         }
     }
