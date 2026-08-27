@@ -47,7 +47,7 @@ extern uint32_t thrEndIMa;
 extern bool     thrTimingActive;
 extern uint64_t thrElapsedUs;
 
-// Storage (SPIFFS 离线记录)
+// Storage (LittleFS 离线记录)
 extern uint32_t           record_interval_s;   // 记录间隔(秒), 0=关闭
 volatile extern bool      storage_full;        // 已满, 停止记录
 volatile extern bool      storage_exporting;   // 导出进行中

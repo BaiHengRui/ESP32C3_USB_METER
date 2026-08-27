@@ -2,6 +2,20 @@
 
 本文件记录 ESP32C3 USB METER 的版本更新历史。
 
+V2.4.0
+
+    1) 离线存储文件系统由 SPIFFS 迁移至 LittleFS：
+        - 启动挂载时间显著缩短，整机启动时长由约 320ms 降至约 170ms
+        - LittleFS 为日志结构，挂载无需全盘扫描，随机读写与磨损均衡更优
+        - 注意：SPIFFS 与 LittleFS 磁盘格式不兼容，旧离线记录无法直接读取
+    2) 分区表调整：数据分区（2MB）仍使用 spiffs 类型，实际挂载为 LittleFS 文件系统
+    3) 重要提示：若首次烧录后出现初始化错误（如 "LittleFS mount failed"、存储页一直显示 FULL），
+        请先全量擦除 flash 后重新烧录：
+            platformio run -t erase
+            platformio run -t upload
+        （擦除会清空全部离线记录，如数据重要请先用 上位机 备份）
+    4) 更新串口帮助/存储占用等显示为 LittleFS 描述
+
 V2.3.0
 
     1) 新增 SPIFFS 离线记录功能（多条目会话模型）：

@@ -24,7 +24,7 @@ Releases里存放编译好的固件，可以使用flash_download_tool工具进�
 ```
 ESP32C3_USB_METER/
 ├── platformio.ini           # PlatformIO 项目配置
-├── minspiffs.csv            # 分区表 (NVS / OTA / app / SPIFFS 2MB / coredump)
+├── minspiffs.csv            # 分区表 (NVS / OTA / app / LittleFS 2MB / coredump)
 ├── CHANGELOG.md             # 更新日志
 ├── LICENSE.md               # 开源协议
 ├── include/                 # 根目录头文件 (预留)
@@ -40,7 +40,7 @@ ESP32C3_USB_METER/
 │   │   ├── hal_lcd.h        # LCD 显示驱动头文件
 │   │   ├── hal_lcd.cpp      # LCD 初始化 / 亮度 / 旋转 / FPS
 │   │   ├── hal_nvs.cpp      # NVS 持久化存储
-│   │   ├── hal_storage.cpp  # SPIFFS 离线记录模块（多条目/会话）
+│   │   ├── hal_storage.cpp  # LittleFS 离线记录模块（多条目/会话）
 │   │   ├── hal_protocol.cpp # USB 协议预留（当前为空实现）
 │   │   ├── hal_timer.cpp    # 阈值计时逻辑
 │   │   ├── hal_uart.cpp     # UART 命令接口 + USB CDC 数据包
@@ -66,8 +66,8 @@ ESP32C3_USB_METER/
 ## 编译资源占用
 
 ```
-RAM:   [=         ]   6.3% (used 20636 bytes from 327680 bytes)
-Flash: [===       ]  34.0% (used 669040 bytes from 1966080 bytes)
+RAM:   [=         ]   6.3% (used 20708 bytes from 327680 bytes)
+Flash: [===       ]  34.4% (used 676754 bytes from 1966080 bytes)
 ```
 
 > 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
@@ -78,6 +78,7 @@ Flash: [===       ]  34.0% (used 669040 bytes from 1966080 bytes)
 └── Sys_Init()          系统初始化 (NVS、Wire、Serial)
 ├── Button_Init()       按钮初始化
 ├── INA22x_Init()       INA228/INA226传感器初始化
+├── Storage_Init()      LittleFS 离线存储初始化 (挂载/队列/互斥锁)
 └── LCD_Init()          显示屏初始化
 ```
 
@@ -107,11 +108,20 @@ Flash: [===       ]  34.0% (used 669040 bytes from 1966080 bytes)
 │       ├── set_start=<mV>,<mA> 设置起始阈值
 │       ├── set_end=<mV>,<mA>   设置结束阈值
 │       ├── threshold           查看阈值配置
+│       ├── record:<0|1|5|10|30|60>  设置离线记录间隔(秒)
+│       ├── rec:enable:<0|1>    离线数据功能开关
+│       ├── rec:start / rec:stop  开始/停止记录
+│       ├── export:list         列出存储文件
+│       ├── export:erase        清除全部条目
+│       ├── export[:<编号>]     分块导出条目
 │       ├── restart             重启设备
 │       └── help                显示命令帮助
 │
 ├── Task_Graph_Update (20ms, 优先级 2)
 │   └── 曲线数据采样 → 环形缓冲区 → 自动量程
+│
+├── Task_Storage (阻塞接收, 优先级 2)
+│   └── LittleFS 离线记录落盘 (队列 → RAM 缓冲 → 攒批写入)
 │
 └── Task_APP_Run (40ms, ~25 FPS, 优先级 1 — 最低)
     └── ApplyPendingRotation()  ← 帧间安全切换方向

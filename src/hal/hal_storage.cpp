@@ -1,5 +1,5 @@
 // ============================================================
-// SPIFFS 离线记录模块 (多条目 / 会话)
+// LittleFS 离线记录模块 (多条目 / 会话)
 // - 每条记录 = 一次记录会话, 文件 /m%04u.dat
 // - SW1 长按开始新条目, 再次长按停止并保存
 // - 采集任务按 record_interval_s 周期入队, 存储任务负责落盘
@@ -16,9 +16,9 @@ using namespace HAL;
 #define STORAGE_FILE_VERSION 1
 #define STORAGE_MAX_ENTRIES  64
 
-// RAM 写缓冲: 攒够 N 条或超过刷新周期才写 flash, 降低 SPIFFS 磨损
-#define STORAGE_BUF_RECORDS 16
-#define STORAGE_FLUSH_US    (10000ULL * 1000ULL)   // 10s (微秒)
+// RAM 写缓冲: 攒够 N 条或超过刷新周期才写 flash, 降低 LittleFS 磨损
+#define STORAGE_BUF_RECORDS 16  // 16 条记录 = 16 * 40 bytes = 640 bytes RAM 缓冲
+#define STORAGE_FLUSH_US    (60000000ULL) // 60 秒刷新一次
 
 // 剩余空间低于该值(字节)视为已满, 停止记录
 #define STORAGE_RESERVE_BYTES (8UL * 1024UL)
@@ -34,7 +34,7 @@ static uint32_t gNextIndex       = 1;       // 下一条目编号 (NVS entry_nex
 static char     gCurPath[24]     = {0};     // 当前记录文件路径
 static int64_t  gRecStartUs      = 0;       // 本次记录开始时刻
 
-// 条目列表 (扫描 SPIFFS 得到)
+// 条目列表 (扫描 LittleFS 得到)
 typedef struct { uint32_t index; uint32_t records; uint32_t bytes; } EntryInfo;
 static EntryInfo gEntries[STORAGE_MAX_ENTRIES];
 static uint32_t  gEntryCount = 0;
@@ -69,10 +69,10 @@ static bool ensureFileHeader(File& f) {
 
 void HAL::Storage_Init()
 {
-    bool mounted_ok = SPIFFS.begin(true);
+    bool mounted_ok = LittleFS.begin(true);
     if (!mounted_ok)
     {
-        HAL::LOG_INFO("SPIFFS mount failed!");
+        HAL::LOG_INFO("LittleFS mount failed!");
     }
 
     xStorageQueue = xQueueCreate(STORAGE_BUF_RECORDS * 2, sizeof(Storage_Record));
@@ -98,12 +98,12 @@ void HAL::Storage_Init()
     storage_full   = false;
     storage_exporting = false;
 
-    // 旧版单文件迁移: 仅尝试执行一次(NVS标记)，之后不再访问SPIFFS
+    // 旧版单文件迁移: 仅尝试执行一次(NVS标记)，之后不再访问LittleFS
     if (HAL::Sys_NVS_Read("migrated", 0) == 0)
     {
         if (mounted_ok)
         {
-            if (SPIFFS.remove("/meter.dat"))
+            if (LittleFS.remove("/meter.dat"))
             {
                 HAL::LOG_INFO("Removed legacy /meter.dat");
             }
@@ -114,7 +114,7 @@ void HAL::Storage_Init()
         }
         else
         {
-            HAL::LOG_INFO("SPIFFS not mounted, skip meter.dat migrate");
+            HAL::LOG_INFO("LittleFS not mounted, skip meter.dat migrate");
         }
         //无论删除结果如何，打上已迁移标记，后续开机不再进入此分支
         HAL::Sys_NVS_Write("migrated", 1);
@@ -124,7 +124,7 @@ void HAL::Storage_Init()
     {
         RefreshEntries();
 
-        if (SPIFFS.usedBytes() >= SPIFFS.totalBytes() - STORAGE_RESERVE_BYTES)
+        if (LittleFS.usedBytes() >= LittleFS.totalBytes() - STORAGE_RESERVE_BYTES)
         {
             storage_full = true;
         }
@@ -133,13 +133,13 @@ void HAL::Storage_Init()
                 (unsigned long)gEntryCount,
                 (unsigned long)gInfo.total_records,
                 (unsigned long)gInfo.total_bytes,
-                (unsigned)SPIFFS.totalBytes());
+                (unsigned)LittleFS.totalBytes());
     }
     else
     {
         // 文件系统挂载失败，标记存储空间已满禁止写入
         storage_full = true;
-        HAL::LOG_INFO("Storage init skipped, SPIFFS mount error");
+        HAL::LOG_INFO("Storage init skipped, LittleFS mount error");
     }
 }
 
@@ -161,6 +161,14 @@ static bool parseEntryIndex(const char* name, uint32_t* out) {
     if (v == 0) return false;            // 排除 meter.dat 等非纯数字名
     if (out) *out = v;
     return true;
+}
+
+// 从 /m%04u.dat 完整路径解析编号 (parseEntryIndex 不接受前导 '/')
+static uint32_t indexFromPath(const char* path) {
+    if (!path) return 0;
+    const char* p = (path[0] == '/') ? (path + 1) : path;
+    uint32_t idx = 0;
+    return parseEntryIndex(p, &idx) ? idx : 0;
 }
 
 static uint32_t recordsOfSize(size_t sz) {
@@ -186,14 +194,14 @@ static void UpdateInfo() {
         ? (uint32_t)((esp_timer_get_time() - gRecStartUs) / 1000000ULL) : 0;
 }
 
-// 扫描 SPIFFS 条目, 重建列表并更新统计
+// 扫描 LittleFS 条目, 重建列表并更新统计
 static void RefreshEntries() {
     if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
 
     gEntryCount = 0;
     uint32_t totalRecords = 0, totalBytes = 0;
 
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
     File f = root.openNextFile();
     while (f && gEntryCount < STORAGE_MAX_ENTRIES) {
         uint32_t idx = 0;
@@ -253,27 +261,49 @@ void HAL::Storage_Flush() {
         return;
     }
 
-    File f = SPIFFS.open(gCurPath, FILE_APPEND);
+    // 快照路径与编号, 避免锁外访问 gCurPath
+    char path[24];
+    strncpy(path, gCurPath, sizeof(path) - 1);
+    path[sizeof(path) - 1] = 0;
+    uint32_t idx   = indexFromPath(path);
+    uint32_t count = sBufCount;
+
+    File f = LittleFS.open(path, FILE_APPEND);
     if (!f) {
         if (xStorageMutex) xSemaphoreGive(xStorageMutex);
         return;
     }
 
     ensureFileHeader(f);
-    f.write((const uint8_t*)sBuf, sBufCount * sizeof(Storage_Record));
+    f.write((const uint8_t*)sBuf, count * sizeof(Storage_Record));
     f.close();
 
     sBufCount = 0;
     sLastFlushUs = esp_timer_get_time();
 
-    // 满员检测: 剩余空间不足时停止记录
-    if (SPIFFS.usedBytes() >= SPIFFS.totalBytes() - STORAGE_RESERVE_BYTES) {
-        storage_full = true;
+    // 增量更新当前条目统计, 避免 RefreshEntries 全盘扫描 (10ms 卡顿主要来源)
+    uint32_t addedBytes = count * (uint32_t)sizeof(Storage_Record);
+    bool found = false;
+    for (uint32_t i = 0; i < gEntryCount; i++) {
+        if (gEntries[i].index == idx) {
+            gEntries[i].bytes   += addedBytes;
+            gEntries[i].records  = recordsOfSize(gEntries[i].bytes);
+            found = true;
+            break;
+        }
     }
+    if (found) {
+        gInfo.total_bytes   += addedBytes;
+        gInfo.total_records += count;
+    }
+    UpdateInfo();
 
     if (xStorageMutex) xSemaphoreGive(xStorageMutex);
 
-    RefreshEntries();  // 更新条目统计
+    // 满员检测(锁外): usedBytes 需遍历分配表, 移出锁外避免阻塞其他任务
+    if (LittleFS.usedBytes() >= LittleFS.totalBytes() - STORAGE_RESERVE_BYTES) {
+        storage_full = true;
+    }
 }
 
 // 采集任务周期调用: 按 record_interval_s 采样入队 (仅在记录中)
@@ -352,8 +382,9 @@ static void sendExportChunk(const Storage_Record* rec, uint32_t idx, uint32_t to
     uint8_t* bytes = (uint8_t*)&tx;
     tx.checksum = xorChecksum(bytes, sizeof(tx) - 1);
 
-    // 流控: 等待发送缓冲可用
-    while (Serial.availableForWrite() < (int)sizeof(tx)) vTaskDelay(1);
+    // 流控: 等待发送缓冲可用。阻塞让出 5ms, 避免 USBCDC::write 内部忙等空转,
+    // 并给低优先级任务(UI 等)留出时间片, 防止导出时界面卡死。
+    while (Serial.availableForWrite() < (int)sizeof(tx)) vTaskDelay(pdMS_TO_TICKS(5));
     Serial.write(bytes, sizeof(tx));
 }
 
@@ -376,12 +407,12 @@ bool HAL::Storage_Export(const char* filename) {
         entryPath(gEntries[gSelected].index, path, sizeof(path));
     }
 
-    if (!SPIFFS.exists(path)) {
+    if (!LittleFS.exists(path)) {
         Serial.println("导出失败: 文件不存在");
         return false;
     }
 
-    File f = SPIFFS.open(path, "r");
+    File f = LittleFS.open(path, "r");
     if (!f) {
         Serial.println("导出失败: 打开文件错误");
         return false;
@@ -399,23 +430,36 @@ bool HAL::Storage_Export(const char* filename) {
     storage_exporting = true;
     Serial.printf("EXPORT:%s:%u:%u\n", path, (unsigned)total, (unsigned)count);
 
-    File fr = SPIFFS.open(path, "r");
+    File fr = LittleFS.open(path, "r");
     if (!fr) {
         storage_exporting = false;
         return false;
     }
 
+    // 只 seek 一次跳到文件头之后的记录区, 再顺序读取。
+    // LittleFS 的随机 seek 开销远小于 SPIFFS, 此处仅 seek 一次定位到记录区再顺序读取。
+    if (!fr.seek((uint32_t)sizeof(Storage_FileHeader))) {
+        storage_exporting = false;
+        fr.close();
+        Serial.println("EXPORT_FAIL");
+        return false;
+    }
+
+    uint32_t sent = 0;
     for (uint32_t i = 0; i < count; i++) {
         Storage_Record rec;
-        uint32_t off = (uint32_t)sizeof(Storage_FileHeader) + i * (uint32_t)sizeof(Storage_Record);
-        if (!fr.seek(off)) break;
         if (fr.read((uint8_t*)&rec, sizeof(rec)) != sizeof(rec)) break;
         sendExportChunk(&rec, i, count);
+        sent++;
         taskYIELD();
     }
     fr.close();
 
     storage_exporting = false;
+    if (sent != count) {
+        // 诊断: 文件读取中断(损坏/格式不匹配), 期望条数 / 实际发出条数
+        Serial.printf("EXPORT_FAIL:%u:%u\n", (unsigned)count, (unsigned)sent);
+    }
     Serial.println("EXPORT_DONE");
     return true;
 }
@@ -432,7 +476,7 @@ bool HAL::Storage_Erase() {
     sBufCount = 0;
     sSeq = 0;
 
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
     File f = root.openNextFile();
     while (f && n < STORAGE_MAX_ENTRIES) {
         uint32_t idx = 0;
@@ -443,11 +487,11 @@ bool HAL::Storage_Erase() {
         f = root.openNextFile();
     }
     // 同时清除旧版单文件
-    SPIFFS.remove("/meter.dat");
+    LittleFS.remove("/meter.dat");
 
     bool ok = true;
     for (uint32_t i = 0; i < n; i++) {
-        if (!SPIFFS.remove(paths[i])) ok = false;
+        if (!LittleFS.remove(paths[i])) ok = false;
     }
 
     gSelected  = 0;
@@ -460,6 +504,7 @@ bool HAL::Storage_Erase() {
 
 // 开始新条目(内部, 供手动/阈值自动共用)
 static Storage_Result Storage_Start() {
+    if (record_interval_s == 0) return SR_ERROR;   // 离线数据已关闭
     if (storage_full) return SR_FULL;
 
     RefreshEntries();  // 重新计算 gNextIndex = 现有最大编号 + 1
@@ -467,7 +512,7 @@ static Storage_Result Storage_Start() {
     // 开始新条目
     if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
     entryPath(gNextIndex, gCurPath, sizeof(gCurPath));
-    File f = SPIFFS.open(gCurPath, FILE_APPEND);
+    File f = LittleFS.open(gCurPath, FILE_APPEND);
     if (f) {
         ensureFileHeader(f);
         f.close();
@@ -497,13 +542,17 @@ static Storage_Result Storage_Stop() {
     gRecStartUs = 0;
 
     // 若本条无数据则删除空条目
-    File f = SPIFFS.open(gCurPath, "r");
+    File f = LittleFS.open(gCurPath, "r");
     size_t sz = f ? f.size() : 0;
     if (f) f.close();
-    if (recordsOfSize(sz) == 0) SPIFFS.remove(gCurPath);
-
-    gCurPath[0] = 0;
-    RefreshEntries();
+    if (recordsOfSize(sz) == 0) {
+        LittleFS.remove(gCurPath);
+        gCurPath[0] = 0;
+        RefreshEntries();   // 空条目被删, 需重建列表并重算 gNextIndex
+    } else {
+        gCurPath[0] = 0;
+        UpdateInfo();       // 统计已由 Storage_Flush 增量更新, 仅刷新状态, 无全盘扫描
+    }
     return SR_SAVED;
 }
 
@@ -558,7 +607,7 @@ HAL::Storage_Result HAL::Storage_DeleteSelected() {
 
     bool ok;
     if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
-    ok = SPIFFS.remove(path);
+    ok = LittleFS.remove(path);
     if (xStorageMutex) xSemaphoreGive(xStorageMutex);
 
     if (ok) {

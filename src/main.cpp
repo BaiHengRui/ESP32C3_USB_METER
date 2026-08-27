@@ -24,7 +24,7 @@ void setup() {
   HAL::Sys_Init();
   HAL::Button_Init();
   HAL::INA22x_Init();
-  HAL::Storage_Init(); // SPIFFS 离线记录初始化(队列/互斥锁/数据文件)
+  HAL::Storage_Init(); // LittleFS 离线记录初始化(队列/互斥锁/数据文件)
   HAL::LCD_Init();
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
   xTaskCreatePinnedToCore(Task_INA22x, "Task_INA22x", 4096, NULL, 3, &xTaskINA, 0); //函数名，任务名，堆栈大小，参数，优先级，任务句柄，核心ID

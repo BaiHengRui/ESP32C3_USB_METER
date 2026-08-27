@@ -320,8 +320,8 @@ void UI::System_Info(){
 // 绘制离线存储页面内容 (带容量进度条)
 static void _DrawStorageContent() {
     const HAL::Storage_Info& si = HAL::Storage_GetInfo();
-    uint32_t used  = SPIFFS.usedBytes();
-    uint32_t total = SPIFFS.totalBytes();
+    uint32_t used  = LittleFS.usedBytes();
+    uint32_t total = LittleFS.totalBytes();
     uint32_t pct   = (total > 0) ? (uint32_t)((uint64_t)used * 100 / total) : 0;
 
     spr.setTextDatum(TL_DATUM);
@@ -335,9 +335,10 @@ static void _DrawStorageContent() {
 
     const char* stText;
     uint16_t stColor;
-    if (si.recording)      { stColor = 0x07FF; stText = "REC"; }
-    else if (storage_full) { stColor = 0xF800; stText = "FULL"; }
-    else                   { stColor = 0x07E0; stText = "IDLE"; }
+    if (record_interval_s == 0) { stColor = 0xC618; stText = "OFF"; }
+    else if (si.recording)      { stColor = 0x07FF; stText = "REC"; }
+    else if (storage_full)      { stColor = 0xF800; stText = "FULL"; }
+    else                        { stColor = 0x07E0; stText = "IDLE"; }
     spr.setTextColor(stColor);
     spr.setCursor(198, 4);
     spr.print(stText);
@@ -381,8 +382,12 @@ static void _DrawStorageContent() {
         spr.print("NO DATA");
     }
 
-    // 记录中: 已进行时长 + 采样间隔
-    if (si.recording) {
+    // 记录中: 已进行时长 + 采样间隔; 关闭时给出提示
+    if (record_interval_s == 0) {
+        spr.setTextColor(0xF800);
+        spr.setCursor(8, 108);
+        spr.print("Offline data disabled");
+    } else if (si.recording) {
         spr.setTextColor(0x07FF);
         spr.setCursor(8, 108);
         spr.printf("Rec:%lus  Int:%lus", (unsigned long)si.rec_elapsed_sec, (unsigned long)record_interval_s);
@@ -391,7 +396,11 @@ static void _DrawStorageContent() {
     // 底部按键提示
     spr.setTextColor(0x7BEF);
     spr.setCursor(6, 122);
-    spr.print("SW1: sel/rec/del");
+    if (record_interval_s == 0) {
+        spr.print("SW1: disabled");
+    } else {
+        spr.print("SW1: sel/rec/del");
+    }
     spr.unloadFont();
 }
 

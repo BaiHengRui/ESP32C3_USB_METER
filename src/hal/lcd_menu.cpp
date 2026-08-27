@@ -14,7 +14,7 @@ namespace MenuConfig {
     // =====================================================================
 
     enum : uint8_t { KIND_MENU, KIND_VALUE, KIND_BACK, KIND_ACTION }; // 菜单项类型
-    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI, ID_RECORD, ID_THRESH_AUTO }; // 编辑项 ID
+    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI, ID_RECORD_SWITCH, ID_RECORD, ID_THRESH_AUTO }; // 编辑项 ID
     enum : uint8_t { ACT_SYSTEM_INFO, ACT_CLEAR_DATA };               // 动作 ID
 
     struct Item {
@@ -28,7 +28,7 @@ namespace MenuConfig {
         { "显示",     KIND_MENU,   1 },               // → 组 1
         { "采样",     KIND_MENU,   2 },               // → 组 2
         { "动效",     KIND_MENU,   3 },               // → 组 3
-        { "数据",     KIND_MENU,   4 },               // → 组 4
+        { "数据", KIND_MENU,   4 },               // → 组 4
         { "返回",     KIND_BACK,   0 },
     };
     // —— 组 1：显示 ——
@@ -47,13 +47,24 @@ namespace MenuConfig {
         { "动画效果", KIND_VALUE, ID_UI },
         { "返回",     KIND_BACK,  0 },
     };
-    // —— 组 4：存储 ——
-    static const Item STORAGE_ITEMS[] = {
-        { "保存时间", KIND_VALUE,  ID_RECORD },
-        { "阈值自动", KIND_VALUE,  ID_THRESH_AUTO },
-        { "清除数据", KIND_ACTION, ACT_CLEAR_DATA },
-        { "返回",     KIND_BACK,   0 },
-    };
+    // —— 组 4：离线数据(动态: 开关关闭时隐藏保存时间/阈值自动) ——
+    static const uint8_t GROUP_OFFLINE = 4;
+
+    static Item    gOfflineItems[5];   // 最多 5 项
+    static uint8_t gOfflineCount = 0;
+
+    static void syncOfflineItems() {
+        bool on = (record_interval_s != 0);
+        uint8_t n = 0;
+        gOfflineItems[n++] = { "启用数据保存", KIND_VALUE,  ID_RECORD_SWITCH };
+        if (on) {
+            gOfflineItems[n++] = { "保存时间", KIND_VALUE,  ID_RECORD };
+            gOfflineItems[n++] = { "阈值自动", KIND_VALUE,  ID_THRESH_AUTO };
+        }
+        gOfflineItems[n++] = { "清除数据", KIND_ACTION, ACT_CLEAR_DATA };
+        gOfflineItems[n++] = { "返回",     KIND_BACK,   0 };
+        gOfflineCount = n;
+    }
 
     struct Group {
         const Item* items;
@@ -66,7 +77,7 @@ namespace MenuConfig {
         { DISPLAY_ITEMS,   3, "显示"     },   // 组 1
         { SAMPLING_ITEMS,  2, "采样速度" },   // 组 2
         { INTERFACE_ITEMS, 2, "动画效果" },   // 组 3
-        { STORAGE_ITEMS,   4, "存储"     },   // 组 4
+        { gOfflineItems,   5, "数据" },   // 组 4 (条目数动态, 见 curCount)
     };
 
     // =====================================================================
@@ -81,18 +92,26 @@ namespace MenuConfig {
     static int16_t  tempRotation   = 3;
     static int16_t  tempSampleMode = 0;
     static int16_t  tempUIEffects  = 1;
-    static int16_t  tempRecord     = 0;   // 记录时间选项索引 0-4
-    static int16_t  tempThreshAuto = 0;   // 阈值自动 0/1
+    static int16_t  tempRecord       = 0;   // 记录时间选项索引 0-4
+    static int16_t  tempRecordSwitch = 1;   // 离线数据功能开关 0/1
+    static int16_t  tempThreshAuto   = 0;   // 阈值自动 0/1
 
     // 当前组
     static const Group& cur()      { return GROUPS[currentGroup]; }
-    static uint8_t      curCount() { return cur().count; }
+    static uint8_t      curCount() {
+        if (currentGroup == GROUP_OFFLINE) { syncOfflineItems(); return gOfflineCount; }
+        return cur().count;
+    }
+    static const Item*  curItems() {
+        if (currentGroup == GROUP_OFFLINE) { syncOfflineItems(); return gOfflineItems; }
+        return cur().items;
+    }
 
     // =====================================================================
     // 编辑项行为：显示 / 调整 / 保存 的规则集中在这里
     // =====================================================================
 
-    // 记录时间选项(秒)
+    // 记录时间选项(秒), 0 档由"功能开关"控制, 此处只提供分段间隔
     static const uint32_t recordChoices[]    = { 1, 5, 10, 30, 60 };
     static const uint8_t  recordChoiceCount  = 5;
 
@@ -100,7 +119,7 @@ namespace MenuConfig {
         for (uint8_t i = 0; i < recordChoiceCount; i++) {
             if (sec == recordChoices[i]) return i;
         }
-        return 0;
+        return 0;   // 未知值回退到 1s (索引 0)
     }
 
     // 把 NVS 当前值读入临时值
@@ -111,15 +130,16 @@ namespace MenuConfig {
         tempSampleMode = HAL::Sys_NVS_Valid("sample_mode", 0);
         if (tempSampleMode > 2) tempSampleMode = 0;
         tempUIEffects  = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
-        tempRecord     = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1));
-        tempThreshAuto = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0);
+        tempRecord       = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1));
+        tempRecordSwitch = (HAL::Sys_NVS_ReadUInt("record_s", 1) != 0) ? 1 : 0;
+        tempThreshAuto   = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0);
     }
 
     // 显示某项的值（编辑中显示临时值，否则显示已存值）
     void GetValueStr(uint8_t index, char* buffer) {
         buffer[0] = '\0';
         if (index >= curCount()) return;
-        const Item& it = cur().items[index];
+        const Item& it = curItems()[index];
         if (it.type != KIND_VALUE) return;
 
         const char* sampleNames[] = { "快速", "默认", "慢速" };
@@ -133,6 +153,7 @@ namespace MenuConfig {
                 case ID_ROTATE:      v = tempRotation;   break;
                 case ID_SAMPLE:      v = tempSampleMode; break;
                 case ID_UI:          v = tempUIEffects;  break;
+                case ID_RECORD_SWITCH: v = tempRecordSwitch; break;
                 case ID_RECORD:      v = tempRecord;     break;
                 case ID_THRESH_AUTO: v = tempThreshAuto; break;
                 default:             v = 0;
@@ -143,6 +164,7 @@ namespace MenuConfig {
                 case ID_ROTATE:      v = HAL::Sys_NVS_Valid("rotation", 3, 3);     break;
                 case ID_SAMPLE:      v = HAL::Sys_NVS_Valid("sample_mode", 0);     break;
                 case ID_UI:          v = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0); break;
+                case ID_RECORD_SWITCH: v = (HAL::Sys_NVS_ReadUInt("record_s", 1) != 0) ? 1 : 0; break;
                 case ID_RECORD:      v = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1)); break;
                 case ID_THRESH_AUTO: v = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0); break;
                 default:             v = 0;
@@ -155,6 +177,7 @@ namespace MenuConfig {
             case ID_ROTATE: sprintf(buffer, "(%d)%s", v, v == 1 ? "方向下" : "方向上"); break;
             case ID_SAMPLE: if (v > 2) v = 0; sprintf(buffer, "%s", sampleNames[v]); break;
             case ID_UI:     sprintf(buffer, "%s", v ? "开启" : "关闭"); break;
+            case ID_RECORD_SWITCH: sprintf(buffer, "%s", v ? "开" : "关"); break;
             case ID_RECORD: {
                 if (v < 0 || v >= (int16_t)recordChoiceCount) v = 0;
                 static const char* recNames[] = {"1s", "5s", "10s", "30s", "60s"};
@@ -184,6 +207,9 @@ namespace MenuConfig {
                 break;
             case ID_UI:
                 tempUIEffects = tempUIEffects ? 0 : 1;
+                break;
+            case ID_RECORD_SWITCH:
+                tempRecordSwitch = tempRecordSwitch ? 0 : 1;
                 break;
             case ID_RECORD:
                 tempRecord = (tempRecord + (delta > 0 ? 1 : (int16_t)(recordChoiceCount - 1))) % recordChoiceCount;
@@ -215,6 +241,11 @@ namespace MenuConfig {
                     HAL::Sys_NVS_Write("ui_effects", tempUIEffects);
                     ui_effects = tempUIEffects;
                     break;
+                case ID_RECORD_SWITCH:
+                    // 开: 若当前为关闭(0)则恢复默认 1s; 关: 置 0
+                    record_interval_s = tempRecordSwitch ? ((record_interval_s == 0) ? 1 : record_interval_s) : 0;
+                    HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
+                    break;
                 case ID_RECORD:
                     record_interval_s = recordChoices[tempRecord];
                     HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
@@ -229,6 +260,7 @@ namespace MenuConfig {
             HAL::LCD_SetBrightness(HAL::Sys_NVS_Valid("light", 50, 100, 1));
         }
         currentMode = MODE_SELECT;
+        if (selectedIndex >= curCount()) selectedIndex = (curCount() > 0) ? (curCount() - 1) : 0;
     }
 
     // =====================================================================
@@ -295,7 +327,7 @@ namespace MenuConfig {
     // “确认”键：根据当前项类型，进入子菜单 / 编辑 / 返回
     void EnterEditMode() {
         if (selectedIndex >= curCount()) return;
-        const Item& it = cur().items[selectedIndex];
+        const Item& it = curItems()[selectedIndex];
 
         if (it.type == KIND_MENU) {            // 进入子菜单
             currentGroup = it.param;
@@ -326,15 +358,15 @@ namespace MenuConfig {
     const char* GetGroupTitle() { return cur().title; }
 
     const char* GetTitle(uint8_t index) {
-        return (index < curCount()) ? cur().items[index].title : "";
+        return (index < curCount()) ? curItems()[index].title : "";
     }
 
     bool ShouldShowValue(uint8_t index) {
-        return (index < curCount()) && cur().items[index].type == KIND_VALUE;
+        return (index < curCount()) && curItems()[index].type == KIND_VALUE;
     }
 
     bool IsSubmenu(uint8_t index) {
-        return (index < curCount()) && cur().items[index].type == KIND_MENU;
+        return (index < curCount()) && curItems()[index].type == KIND_MENU;
     }
 
     // 滚动窗口起始索引（选中项尽量固定在 menuCursorRow 行）

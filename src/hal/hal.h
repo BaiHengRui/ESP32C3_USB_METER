@@ -7,7 +7,7 @@
 #include "esp_ota_ops.h"
 #include <Preferences.h>
 #include <Wire.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 
 // 硬件引脚
 #define I2C_SDA_PIN  7
@@ -18,7 +18,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.3.0"
+#define SOFTWARE_VERSION "v2.4.0"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -116,7 +116,7 @@ namespace HAL
     /* USB */
     void UART_Command();
 
-    /* Storage (SPIFFS 离线记录, 多条目) */
+    /* Storage (LittleFS 离线记录, 多条目) */
     typedef struct
     {
         bool     recording;        // 正在记录

@@ -21,6 +21,9 @@ static void handle_record(const char* param);
 static void handle_export_list(const char* param);
 static void handle_export_erase(const char* param);
 static void handle_export(const char* param);
+static void handle_rec_enable(const char* param);
+static void handle_rec_start(const char* param);
+static void handle_rec_stop(const char* param);
 
 // ============================================================
 // 命令映射表
@@ -43,6 +46,9 @@ static const CmdEntry cmdTable[] = {
     { "help",        handle_help,          false },
     { "data",        handle_data,          false },
     { "record:",     handle_record,        true  },
+    { "rec:enable",  handle_rec_enable,    true  },
+    { "rec:start",   handle_rec_start,     false },
+    { "rec:stop",    handle_rec_stop,      false },
     { "export:list", handle_export_list,   false },
     { "export:erase",handle_export_erase,  false },
     { "export",      handle_export,        true  },
@@ -174,24 +180,29 @@ static void handle_restart(const char* param) {
 
 static void handle_help(const char* param) {
     (void)param;
-    Serial.println("\n====== 串口命令帮助 ======");
-    Serial.println("发送类型:      <command>:<value>");
-    Serial.println("brightness:<1-100>  -设置亮度");
-    Serial.println("rotation:<0-3>      -设置屏幕方向(1/3)");
-    Serial.println("sample:<0-2>        -设置采样率(0:Fast/1:Normal/2:Slow)");
-    Serial.println("sample:<fast>/<normal>/<slow> -设置采样率");
-    Serial.println("set_start=<mV>,<mA> -起始阈值(电压mV,电流mA), 0=无限制");
-    Serial.println("set_end=<mV>,<mA>   -结束阈值(电压mV,电流mA), 0=无限制");
-    Serial.println("threshold           -查看当前阈值/计时状态");
-    Serial.println("info                -设备信息");
-    Serial.println("restart             -重启");
-    Serial.println("data                -发送数据包");
-    Serial.println("record:<0-3600>     -设置离线记录间隔(秒), 0=关闭");
-    Serial.println("export:list         -列出存储文件");
-    Serial.println("export:erase        -清除全部条目");
-    Serial.println("export[:<编号>]     -分块导出条目(默认当前选中条目)");
-    Serial.println("help                -显示此帮助信息");
-    Serial.println("=========================\n");
+    // 合并为单次 printf 输出，减少逐行 Serial.println 的调用开销
+    Serial.printf(
+        "\n====== 串口命令帮助 ======\n"
+        "发送类型:      <command>:<value>\n"
+        "brightness:<1-100>  -设置亮度\n"
+        "rotation:<0-3>      -设置屏幕方向(1/3)\n"
+        "sample:<0-2>        -设置采样率(0:Fast/1:Normal/2:Slow)\n"
+        "sample:<fast>/<normal>/<slow> -设置采样率\n"
+        "set_start=<mV>,<mA> -起始阈值(电压mV,电流mA), 0=无限制\n"
+        "set_end=<mV>,<mA>   -结束阈值(电压mV,电流mA), 0=无限制\n"
+        "threshold           -查看当前阈值/计时状态\n"
+        "info                -设备信息\n"
+        "restart             -重启\n"
+        "data                -发送数据包\n"
+        "record:<0|1|5|10|30|60> -设置离线记录间隔(秒), 0=关闭\n"
+        "rec:enable:<0|1>   -离线数据功能开关(0=关, 1=开)\n"
+        "rec:start           -开始记录\n"
+        "rec:stop            -停止记录\n"
+        "export:list         -列出存储文件\n"
+        "export:erase        -清除全部条目\n"
+        "export[:<编号>]     -分块导出条目(默认当前选中条目)\n"
+        "help                -显示此帮助信息\n"
+        "=========================\n");
 }
 
 static void handle_data(const char* param) {
@@ -228,8 +239,9 @@ static void handle_data(const char* param) {
 
 static void handle_record(const char* param) {
     int value = atoi(param);
-    if (value < 0 || value > 3600) {
-        Serial.println("错误: record 值必须为 0-3600 (秒)");
+    // 0=关闭; 非 0 时必须为分段间隔, 与"保存时间"菜单保持一致
+    if (value != 0 && value != 1 && value != 5 && value != 10 && value != 30 && value != 60) {
+        Serial.println("错误: record 值必须为 0(关闭) 或 1/5/10/30/60 (秒)");
         return;
     }
     record_interval_s = (uint32_t)value;
@@ -241,10 +253,58 @@ static void handle_record(const char* param) {
     }
 }
 
+static void handle_rec_enable(const char* param) {
+    // rec:enable:<0|1>  1=开启, 0=关闭 (与菜单"功能开关"一致)
+    while (*param == ':' || *param == ' ') param++;
+    if (*param == 0) {
+        Serial.println("用法: rec:enable:<0|1>  (0=关, 1=开)");
+        return;
+    }
+    int v = atoi(param);
+    if (v == 0) {
+        record_interval_s = 0;
+        HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
+        Serial.println("离线数据: 已关闭");
+    } else {
+        if (record_interval_s == 0) record_interval_s = 1;   // 恢复默认 1s
+        HAL::Sys_NVS_WriteUInt("record_s", record_interval_s);
+        Serial.printf("离线数据: 已开启 (间隔 %lu s)\n", (unsigned long)record_interval_s);
+    }
+}
+
+static void handle_rec_start(const char* param) {
+    (void)param;
+    if (record_interval_s == 0) {
+        Serial.println("开始失败: 离线数据已关闭 (先 rec:enable:1)");
+        return;
+    }
+    if (HAL::Storage_GetInfo().recording) {
+        Serial.println("已在记录中");
+        return;
+    }
+    HAL::Storage_Result r = HAL::Storage_ToggleRecord();
+    if (r == HAL::SR_STARTED)      { Serial.println("已开始记录"); HAL::ShowToast("开始"); }
+    else if (r == HAL::SR_FULL)    { Serial.println("开始失败: 存储已满"); HAL::ShowToast("NVS Full!"); }
+    else if (r == HAL::SR_BUSY)    { Serial.println("导出中, 请稍后"); }
+    else                           { Serial.println("开始失败"); }
+}
+
+static void handle_rec_stop(const char* param) {
+    (void)param;
+    if (!HAL::Storage_GetInfo().recording) {
+        Serial.println("未在记录中");
+        return;
+    }
+    HAL::Storage_Result r = HAL::Storage_ToggleRecord();
+    if (r == HAL::SR_SAVED)        { Serial.println("已停止并保存"); HAL::ShowToast("保存"); }
+    else if (r == HAL::SR_BUSY)    { Serial.println("导出中, 请稍后"); }
+    else                           { Serial.println("停止失败"); }
+}
+
 static void handle_export_list(const char* param) {
     (void)param;
     Serial.println("====== 存储文件列表 ======");
-    File root = SPIFFS.open("/");
+    File root = LittleFS.open("/");
     File file = root.openNextFile();
     if (!file) {
         Serial.println("(无文件)");
@@ -253,7 +313,7 @@ static void handle_export_list(const char* param) {
         Serial.printf("  %s  %u bytes\n", file.name(), (unsigned)file.size());
         file = root.openNextFile();
     }
-    Serial.printf("SPIFFS 占用: %u / %u bytes\n", (unsigned)SPIFFS.usedBytes(), (unsigned)SPIFFS.totalBytes());
+    Serial.printf("LittleFS 占用: %u / %u bytes\n", (unsigned)LittleFS.usedBytes(), (unsigned)LittleFS.totalBytes());
     Serial.println("==========================");
 }
 

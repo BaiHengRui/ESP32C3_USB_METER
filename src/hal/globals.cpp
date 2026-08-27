@@ -42,7 +42,7 @@ uint32_t thrEndIMa       = 0;
 bool     thrTimingActive = false;
 uint64_t thrElapsedUs    = 0;
 
-// Storage (SPIFFS 离线记录)
+// Storage (LittleFS 离线记录)
 uint32_t          record_interval_s    = 1;      // 默认 1 秒
 volatile bool     storage_full         = false;
 volatile bool     storage_exporting    = false;

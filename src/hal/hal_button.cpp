@@ -74,6 +74,7 @@ void Key1Click(Button2& btn1) {
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
         } else if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_SelectNext();
         }
     }
@@ -116,6 +117,7 @@ void Key2Click(Button2& btn2) {
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
         } else if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_SelectNext();
         }
     }
@@ -157,9 +159,10 @@ void Key1LongPress(Button2& btn1) {
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
         } else if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_Result r = HAL::Storage_ToggleRecord();
-            if (r == HAL::SR_STARTED)    HAL::ShowToast("Start");
-            else if (r == HAL::SR_SAVED) HAL::ShowToast("Saved");
+            if (r == HAL::SR_STARTED)    HAL::ShowToast("开始");
+            else if (r == HAL::SR_SAVED) HAL::ShowToast("保存");
             else if (r == HAL::SR_FULL)  HAL::ShowToast("NVS Full!");
         } else if (nowApp == AppState::MAIN) {
             nowApp = AppState::SYSTEM_INFO;
@@ -178,23 +181,24 @@ void Key1DoubleClick(Button2& btn1) {
         sample_mode = (sample_mode + 1) % 3;
         HAL::Sys_NVS_Write("sample_mode", sample_mode);
         HAL::INA22x_SetConfig(sample_mode);
-        const char* modeNames[] = {"Fast", "Normal", "Slow"};
+        const char* modeNames[] = {"快速", "默认", "慢速"};
         char msg[32];
-        snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
+        snprintf(msg, sizeof(msg), "采样速度: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
     } else {
         if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_Result r = HAL::Storage_DeleteSelected();
             if (r == HAL::SR_DELETED)        HAL::ShowToast("Delete");
             else if (r == HAL::SR_RECORDING) HAL::ShowToast("Stop REC First");
-            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("No entries");
+            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("无数据");
             return;
         }
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
         pendingRotation = newRotation;
-        HAL::ShowToast(newRotation == 1 ? "Rotation: DOWN" : "Rotation: UP");
+        HAL::ShowToast(newRotation == 1 ? "方向: 下" : "方向: 上");
     }
 }
 
@@ -209,23 +213,24 @@ void Key2DoubleClick(Button2& btn2) {
         sample_mode = (sample_mode + 1) % 3;
         HAL::Sys_NVS_Write("sample_mode", sample_mode);
         HAL::INA22x_SetConfig(sample_mode);
-        const char* modeNames[] = {"Fast", "Normal", "Slow"};
+        const char* modeNames[] = {"快速", "默认", "慢速"};
         char msg[32];
-        snprintf(msg, sizeof(msg), "Sample: %s", modeNames[sample_mode]);
+        snprintf(msg, sizeof(msg), "采样速度: %s", modeNames[sample_mode]);
         HAL::ShowToast(msg);
     } else {
         if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_Result r = HAL::Storage_DeleteSelected();
             if (r == HAL::SR_DELETED)        HAL::ShowToast("Delete");
             else if (r == HAL::SR_RECORDING) HAL::ShowToast("Stop REC First");
-            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("No entries");
+            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("无数据");
             return;
         }
         // === 右键双击: 切换屏幕方向 ===
         uint8_t newRotation = (currentRotation == 1) ? 3 : 1;
         HAL::Sys_NVS_Write("rotation", newRotation);
         pendingRotation = newRotation;
-        HAL::ShowToast(newRotation == 1 ? "Rotation: DOWN" : "Rotation: UP");
+        HAL::ShowToast(newRotation == 1 ? "方向: 下" : "方向: 上");
     }
 }
 
@@ -265,6 +270,7 @@ void Key2LongPress(Button2& btn2) {
         } else if (nowApp == AppState::WAVEGRAPH) {
             graphPaused = !graphPaused;
         } else if (nowApp == AppState::STOREAGE_DATA) {
+            if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
             HAL::Storage_Result r = HAL::Storage_ToggleRecord();
             if (r == HAL::SR_STARTED)    HAL::ShowToast("开始");
             else if (r == HAL::SR_SAVED) HAL::ShowToast("保存");
