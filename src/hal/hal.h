@@ -18,7 +18,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.3.0"
+#define SOFTWARE_VERSION "v2.4.1"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
