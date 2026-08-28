@@ -162,6 +162,7 @@ static void handle_info(const char* param) {
     Serial.printf("SDK版本: %s\n", ESP.getSdkVersion());
     Serial.printf("HW: %s\n", HARDWARE_VERSION);
     Serial.printf("SW: %s\n", SOFTWARE_VERSION);
+    Serial.printf("INA: %04X\n", INA228_EN ? "228" : "226");
     Serial.printf("SN ID: %012llX\n", SNID);
     Serial.printf("Sketch MD5: %s\n", ESP.getSketchMD5().c_str());
     Serial.printf("状态: %s\n", HAL::Get_System_Status().c_str());
