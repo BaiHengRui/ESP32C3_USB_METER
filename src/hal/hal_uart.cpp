@@ -115,8 +115,8 @@ static void handle_set_start(const char* param) {
     thrStartIMa = i;
     HAL::Sys_NVS_WriteUInt("thr_sv", v);
     HAL::Sys_NVS_WriteUInt("thr_si", i);
-    thrTimingActive = false;
-    thrElapsedUs = 0;
+    HAL::Threshold_Timing_Reset();     // 复位计时状态与防抖计时
+    HAL::Storage_AutoControl_Reset();  // 复位自动记录防抖计时
     Serial.printf("起始阈值: %u mV %s / %u mA %s (已保存)\n",
         v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
 }
@@ -132,8 +132,8 @@ static void handle_set_end(const char* param) {
     thrEndIMa = i;
     HAL::Sys_NVS_WriteUInt("thr_ev", v);
     HAL::Sys_NVS_WriteUInt("thr_ei", i);
-    thrTimingActive = false;
-    thrElapsedUs = 0;
+    HAL::Threshold_Timing_Reset();     // 复位计时状态与防抖计时
+    HAL::Storage_AutoControl_Reset();  // 复位自动记录防抖计时
     Serial.printf("结束阈值: %u mV %s / %u mA %s (已保存)\n",
         v, v == 0 ? "(无限制)" : "", i, i == 0 ? "(无限制)" : "");
 }

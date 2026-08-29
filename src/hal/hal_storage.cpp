@@ -23,6 +23,9 @@ using namespace HAL;
 // 剩余空间低于该值(字节)视为已满, 停止记录
 #define STORAGE_RESERVE_BYTES (8UL * 1024UL)
 
+// 阈值自动控制防抖时间
+#define THR_AUTO_DEBOUNCE_US 50000  // 50ms
+
 static Storage_Record sBuf[STORAGE_BUF_RECORDS];
 static uint8_t  sBufCount    = 0;
 static uint32_t sSeq         = 0;      // 当前条目内记录序号
@@ -33,6 +36,10 @@ static volatile bool gRecording  = false;   // 是否正在记录
 static uint32_t gNextIndex       = 1;       // 下一条目编号 (NVS entry_next)
 static char     gCurPath[24]     = {0};     // 当前记录文件路径
 static int64_t  gRecStartUs      = 0;       // 本次记录开始时刻
+
+// 阈值自动控制防抖状态
+static uint64_t sStartDebounceUs = 0;   // 起始条件防抖起始时刻(us), 0=未在防抖
+static uint64_t sStopDebounceUs  = 0;   // 结束条件防抖起始时刻(us), 0=未在防抖
 
 // 条目列表 (扫描 LittleFS 得到)
 typedef struct { uint32_t index; uint32_t records; uint32_t bytes; } EntryInfo;
@@ -523,6 +530,8 @@ static Storage_Result Storage_Start() {
     sBufCount = 0;
     gRecording = true;
     gRecStartUs = esp_timer_get_time();
+    sStartDebounceUs = 0;   // 手动/自动启动时复位防抖
+    sStopDebounceUs  = 0;
 
     uint32_t created = gNextIndex;
     gNextIndex++;
@@ -540,6 +549,8 @@ static Storage_Result Storage_Stop() {
     HAL::Storage_Flush();
     gRecording = false;
     gRecStartUs = 0;
+    sStartDebounceUs = 0;   // 手动/自动停止时复位防抖
+    sStopDebounceUs  = 0;
 
     // 若本条无数据则删除空条目
     File f = LittleFS.open(gCurPath, "r");
@@ -575,16 +586,43 @@ void HAL::Storage_AutoControl() {
     bool startCondI = (thrStartIMa == 0) || (current_mA >= thrStartIMa);
     bool shouldStart = hasStart && startCondV && startCondI;
 
-    // 结束条件: 电压/电流均小于等于结束阈值(需同时设置两项结束阈值)
+    // 结束条件: 电压<=结束电压阈值 OR 电流<=结束电流阈值
+    // (任一满足即结束, 规避PD协议后期电流接近0但电压仍高导致不停止的情况; 0=该项不生效)
     bool endCondV = (thrEndVMv != 0) && (voltage_mV <= thrEndVMv);
     bool endCondI = (thrEndIMa != 0) && (current_mA <= thrEndIMa);
-    bool shouldStop = endCondV && endCondI;
+    bool shouldStop = endCondV || endCondI;
 
+    uint64_t nowUs = esp_timer_get_time();
+
+    // 未记录: 起始条件需连续满足 50ms 才触发, 中途不满足则重新防抖
     if (!gRecording && shouldStart) {
-        Storage_Start();
-    } else if (gRecording && shouldStop) {
-        Storage_Stop();
+        if (sStartDebounceUs == 0) {
+            sStartDebounceUs = nowUs;
+        } else if ((nowUs - sStartDebounceUs) >= THR_AUTO_DEBOUNCE_US) {
+            Storage_Start();
+            sStartDebounceUs = 0;
+        }
+    } else {
+        sStartDebounceUs = 0;
     }
+
+    // 记录中: 结束条件需连续满足 50ms 才触发, 中途恢复则不停止
+    if (gRecording && shouldStop) {
+        if (sStopDebounceUs == 0) {
+            sStopDebounceUs = nowUs;
+        } else if ((nowUs - sStopDebounceUs) >= THR_AUTO_DEBOUNCE_US) {
+            Storage_Stop();
+            sStopDebounceUs = 0;
+        }
+    } else {
+        sStopDebounceUs = 0;
+    }
+}
+
+// 复位阈值自动记录防抖计时 (修改阈值后调用)
+void HAL::Storage_AutoControl_Reset() {
+    sStartDebounceUs = 0;
+    sStopDebounceUs  = 0;
 }
 
 // SW1 短按: 选中下一条目

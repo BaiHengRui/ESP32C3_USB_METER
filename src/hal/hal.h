@@ -18,7 +18,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.4.1"
+#define SOFTWARE_VERSION "v2.4.2"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -89,6 +89,33 @@ namespace HAL
         uint8_t  checksum;
     } USB_CDC_Data;
     #pragma pack(pop)
+
+    /* Storage 信息 (LittleFS 离线记录, 多条目) */
+    typedef struct
+    {
+        bool     recording;        // 正在记录
+        uint32_t entry_count;      // 条目总数
+        uint32_t total_records;    // 总记录数
+        uint32_t total_bytes;      // 总字节数
+        uint32_t selected;         // 选中条目(0-based)
+        uint32_t sel_index;        // 选中条目编号
+        uint32_t sel_records;      // 选中条目记录数
+        uint32_t sel_bytes;        // 选中条目字节数
+        uint32_t rec_elapsed_sec;  // 本次记录时长(秒)
+    } Storage_Info;
+
+    // 存储操作结果码
+    enum Storage_Result : uint8_t {
+        SR_OK = 0,       // 成功
+        SR_STARTED,      // 已开始记录
+        SR_SAVED,        // 已停止并保存
+        SR_DELETED,      // 已删除
+        SR_EMPTY,        // 无条目
+        SR_FULL,         // 存储已满
+        SR_RECORDING,    // 正在记录中
+        SR_BUSY,         // 导出进行中
+        SR_ERROR,        // 失败
+    };
 }
 
 // ============================================================
@@ -116,36 +143,11 @@ namespace HAL
     /* USB */
     void UART_Command();
 
-    /* Storage (LittleFS 离线记录, 多条目) */
-    typedef struct
-    {
-        bool     recording;        // 正在记录
-        uint32_t entry_count;      // 条目总数
-        uint32_t total_records;    // 总记录数
-        uint32_t total_bytes;      // 总字节数
-        uint32_t selected;         // 选中条目(0-based)
-        uint32_t sel_index;        // 选中条目编号
-        uint32_t sel_records;      // 选中条目记录数
-        uint32_t sel_bytes;        // 选中条目字节数
-        uint32_t rec_elapsed_sec;  // 本次记录时长(秒)
-    } Storage_Info;
-
-    // 存储操作结果码
-    enum Storage_Result : uint8_t {
-        SR_OK = 0,       // 成功
-        SR_STARTED,      // 已开始记录
-        SR_SAVED,        // 已停止并保存
-        SR_DELETED,      // 已删除
-        SR_EMPTY,        // 无条目
-        SR_FULL,         // 存储已满
-        SR_RECORDING,    // 正在记录中
-        SR_BUSY,         // 导出进行中
-        SR_ERROR,        // 失败
-    };
-
+    /* Storage (LittleFS 离线记录) */
     void     Storage_Init();
     void     Storage_Sample();          // 采集任务周期调用, 按记录间隔入队
     void     Storage_AutoControl();     // 阈值自动开始/停止记录(采集任务周期调用)
+    void     Storage_AutoControl_Reset(); // 复位自动记录防抖计时(修改阈值后调用)
     void     Storage_Task();            // 存储任务主体(阻塞在队列)
     void     Storage_Flush();           // 刷新 RAM 缓冲到文件
     Storage_Result Storage_ToggleRecord();   // SW1 长按: 开始/停止记录
@@ -184,6 +186,7 @@ namespace HAL
     /* Threshold Timing */
     void   Threshold_Timing_Update();
     String Get_Threshold_Time();
+    void   Threshold_Timing_Reset();   // 复位计时状态与防抖计时
 
     /* Safe Rotation (帧间切换，避免 SPI 竞态) */
     void ApplyPendingRotation();
