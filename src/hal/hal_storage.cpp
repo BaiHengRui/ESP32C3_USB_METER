@@ -33,6 +33,7 @@ static int64_t  sLastFlushUs = 0;
 
 // 多条目状态
 static volatile bool gRecording  = false;   // 是否正在记录
+static volatile bool gManualRecording = false; // 手动开始(禁止阈值自动停止)
 static uint32_t gNextIndex       = 1;       // 下一条目编号 (NVS entry_next)
 static char     gCurPath[24]     = {0};     // 当前记录文件路径
 static int64_t  gRecStartUs      = 0;       // 本次记录开始时刻
@@ -102,6 +103,7 @@ void HAL::Storage_Init()
     sBufCount   = 0;
     sSeq        = 0;
     gRecording  = false;
+    gManualRecording = false;
     storage_full   = false;
     storage_exporting = false;
 
@@ -277,7 +279,9 @@ void HAL::Storage_Flush() {
 
     File f = LittleFS.open(path, FILE_APPEND);
     if (!f) {
+        sBufCount = 0;  // 写失败时丢弃缓冲, 防止 sBuf 溢出与后续越界
         if (xStorageMutex) xSemaphoreGive(xStorageMutex);
+        HAL::LOG_INFO("Storage_Flush: open failed: %s", path);
         return;
     }
 
@@ -348,7 +352,9 @@ void HAL::Storage_Task() {
     if (xStorageQueue && xQueueReceive(xStorageQueue, &rec, timeout) == pdTRUE) {
         // 缓冲写入加锁, 避免与 Storage_Flush(按钮/阈值自动触发) 并发读写出错
         if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
-        sBuf[sBufCount++] = rec;
+        if (sBufCount < STORAGE_BUF_RECORDS) {
+            sBuf[sBufCount++] = rec;
+        }
         bool needFlush = (sBufCount >= STORAGE_BUF_RECORDS);
         if (xStorageMutex) xSemaphoreGive(xStorageMutex);
         if (needFlush) HAL::Storage_Flush();
@@ -493,6 +499,9 @@ bool HAL::Storage_Erase() {
         }
         f = root.openNextFile();
     }
+    f.close();      // 先关闭迭代句柄再删除, 避免 LittleFS 删除失败
+    root.close();
+
     // 同时清除旧版单文件
     LittleFS.remove("/meter.dat");
 
@@ -501,8 +510,16 @@ bool HAL::Storage_Erase() {
         if (!LittleFS.remove(paths[i])) ok = false;
     }
 
-    gSelected  = 0;
-    storage_full = false;
+    // 完整复位记录状态, 与开机初始状态一致
+    gRecording        = false;
+    gManualRecording  = false;
+    gSelected         = 0;
+    gRecStartUs       = 0;
+    gCurPath[0]       = 0;
+    sLastFlushUs      = 0;
+    sStartDebounceUs  = 0;
+    sStopDebounceUs   = 0;
+    storage_full      = false;
     if (xStorageMutex) xSemaphoreGive(xStorageMutex);
 
     RefreshEntries();  // 重新计算 gNextIndex (无条目时 = 1)
@@ -510,7 +527,8 @@ bool HAL::Storage_Erase() {
 }
 
 // 开始新条目(内部, 供手动/阈值自动共用)
-static Storage_Result Storage_Start() {
+// fromAuto=true 表示由阈值自动触发(可被自动停止), false 表示手动开始(不受自动停止影响)
+static Storage_Result Storage_Start(bool fromAuto = false) {
     if (record_interval_s == 0) return SR_ERROR;   // 离线数据已关闭
     if (storage_full) return SR_FULL;
 
@@ -520,15 +538,20 @@ static Storage_Result Storage_Start() {
     if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
     entryPath(gNextIndex, gCurPath, sizeof(gCurPath));
     File f = LittleFS.open(gCurPath, FILE_APPEND);
-    if (f) {
-        ensureFileHeader(f);
-        f.close();
+    if (!f) {
+        if (xStorageMutex) xSemaphoreGive(xStorageMutex);
+        HAL::LOG_INFO("Storage_Start: open/create failed: %s", gCurPath);
+        gCurPath[0] = 0;
+        return SR_ERROR;   // 文件创建失败, 不置记录状态, 避免假“已开始”
     }
+    ensureFileHeader(f);
+    f.close();
     if (xStorageMutex) xSemaphoreGive(xStorageMutex);
 
     sSeq = 0;
     sBufCount = 0;
     gRecording = true;
+    gManualRecording = !fromAuto;
     gRecStartUs = esp_timer_get_time();
     sStartDebounceUs = 0;   // 手动/自动启动时复位防抖
     sStopDebounceUs  = 0;
@@ -548,6 +571,7 @@ static Storage_Result Storage_Start() {
 static Storage_Result Storage_Stop() {
     HAL::Storage_Flush();
     gRecording = false;
+    gManualRecording = false;
     gRecStartUs = 0;
     sStartDebounceUs = 0;   // 手动/自动停止时复位防抖
     sStopDebounceUs  = 0;
@@ -570,7 +594,7 @@ static Storage_Result Storage_Stop() {
 // SW1 长按: 开始/停止记录 (只返回结果, 不弹通知)
 HAL::Storage_Result HAL::Storage_ToggleRecord() {
     if (storage_exporting) return SR_BUSY;
-    return gRecording ? Storage_Stop() : Storage_Start();
+    return gRecording ? Storage_Stop() : Storage_Start(false);
 }
 
 // 阈值自动开始/停止记录 (采集任务周期调用)
@@ -599,7 +623,7 @@ void HAL::Storage_AutoControl() {
         if (sStartDebounceUs == 0) {
             sStartDebounceUs = nowUs;
         } else if ((nowUs - sStartDebounceUs) >= THR_AUTO_DEBOUNCE_US) {
-            Storage_Start();
+            Storage_Start(true);
             sStartDebounceUs = 0;
         }
     } else {
@@ -607,7 +631,8 @@ void HAL::Storage_AutoControl() {
     }
 
     // 记录中: 结束条件需连续满足 50ms 才触发, 中途恢复则不停止
-    if (gRecording && shouldStop) {
+    // 手动开始的记录不受自动停止控制
+    if (gRecording && shouldStop && !gManualRecording) {
         if (sStopDebounceUs == 0) {
             sStopDebounceUs = nowUs;
         } else if ((nowUs - sStopDebounceUs) >= THR_AUTO_DEBOUNCE_US) {

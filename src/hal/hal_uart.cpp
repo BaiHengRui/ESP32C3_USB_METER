@@ -285,7 +285,7 @@ static void handle_rec_start(const char* param) {
     }
     HAL::Storage_Result r = HAL::Storage_ToggleRecord();
     if (r == HAL::SR_STARTED)      { Serial.println("已开始记录"); HAL::ShowToast("开始"); }
-    else if (r == HAL::SR_FULL)    { Serial.println("开始失败: 存储已满"); HAL::ShowToast("NVS Full!"); }
+    else if (r == HAL::SR_FULL)    { Serial.println("开始失败: 存储已满"); HAL::ShowToast("存储空间不足"); }
     else if (r == HAL::SR_BUSY)    { Serial.println("导出中, 请稍后"); }
     else                           { Serial.println("开始失败"); }
 }
