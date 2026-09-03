@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <esp32-hal-cpu.h>
 #include <esp_task_wdt.h>
-#include "esp_ota_ops.h"
 #include <Preferences.h>
 #include <Wire.h>
 #include <LittleFS.h>
@@ -18,7 +17,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.4.3"
+#define SOFTWARE_VERSION "v2.4.4"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -153,6 +152,10 @@ namespace HAL
     Storage_Result Storage_ToggleRecord();   // SW1 长按: 开始/停止记录
     void     Storage_SelectNext();           // SW1 短按: 选中下一条目
     Storage_Result Storage_DeleteSelected(); // SW1 双击: 删除选中条目
+    // 按钮任务委托接口: 仅入队, FS 操作由存储任务执行(避免按钮任务栈上做 LittleFS)
+    void     Storage_RequestSelectNext();
+    void     Storage_RequestDeleteSelected();
+    void     Storage_RequestToggleRecord();
     const Storage_Info& Storage_GetInfo();
     bool     Storage_Export(const char* filename); // 分块导出
     bool     Storage_Erase();

@@ -24,7 +24,7 @@ using namespace HAL;
 #define STORAGE_RESERVE_BYTES (8UL * 1024UL)
 
 // 阈值自动控制防抖时间
-#define THR_AUTO_DEBOUNCE_US 50000  // 50ms
+#define THR_AUTO_DEBOUNCE_US 100000  // 100ms
 
 static Storage_Record sBuf[STORAGE_BUF_RECORDS];
 static uint8_t  sBufCount    = 0;
@@ -49,6 +49,19 @@ static uint32_t  gEntryCount = 0;
 static uint32_t  gSelected   = 0;         // 0-based 选中
 
 static Storage_Info gInfo;                // 对外只读信息
+
+// 按钮任务委托命令队列: 按钮任务仅入队, FS 操作由存储任务(大堆栈)执行
+typedef enum : uint8_t {
+    STORAGE_CMD_SELECT_NEXT = 0,   // SW1 短按: 选中下一条目
+    STORAGE_CMD_DELETE_SELECTED,   // SW1 双击: 删除选中条目
+    STORAGE_CMD_TOGGLE_RECORD,     // SW1 长按: 开始/停止记录
+} Storage_CmdType;
+
+typedef struct {
+    Storage_CmdType type;
+} Storage_Cmd;
+
+static QueueHandle_t sCmdQueue = nullptr;
 
 // 前向声明
 static void RefreshEntries();
@@ -100,6 +113,12 @@ void HAL::Storage_Init()
         return;
     }
 
+    sCmdQueue = xQueueCreate(4, sizeof(Storage_Cmd));
+    if (sCmdQueue == nullptr)
+    {
+        HAL::LOG_INFO("Storage Cmd Queue create fail");
+    }
+
     sBufCount   = 0;
     sSeq        = 0;
     gRecording  = false;
@@ -133,7 +152,9 @@ void HAL::Storage_Init()
     {
         RefreshEntries();
 
-        if (LittleFS.usedBytes() >= LittleFS.totalBytes() - STORAGE_RESERVE_BYTES)
+        // 启动时不调用 LittleFS.usedBytes() 做全盘遍历,数据越多需要的时间越长 O(n)，避免阻塞开机流程;
+        // 用条目数据字节数(gInfo.total_bytes)做粗略的满员预判, 精确判定延后到落盘时(Storage_Flush)。
+        if (gInfo.total_bytes >= LittleFS.totalBytes() - STORAGE_RESERVE_BYTES)
         {
             storage_full = true;
         }
@@ -344,11 +365,43 @@ void HAL::Storage_Sample() {
     if (xStorageQueue) xQueueSend(xStorageQueue, &rec, 0); // 满则丢弃(采样率低, 可接受)
 }
 
-// 存储任务主体: 阻塞接收队列, 攒批落盘; 超时则定期刷新
-void HAL::Storage_Task() {
-    Storage_Record rec;
-    TickType_t timeout = pdMS_TO_TICKS(1000);
+// 存储任务执行按钮委托的命令(运行在存储任务上下文, 有足够堆栈做 FS 操作)
+static void Storage_HandleCmd(Storage_CmdType type) {
+    switch (type) {
+        case STORAGE_CMD_SELECT_NEXT: {
+            HAL::Storage_SelectNext();
+            break;
+        }
+        case STORAGE_CMD_DELETE_SELECTED: {
+            HAL::Storage_Result r = HAL::Storage_DeleteSelected();
+            if (r == HAL::SR_DELETED)        HAL::ShowToast("删除数据");
+            else if (r == HAL::SR_RECORDING) HAL::ShowToast("请先停止");
+            else if (r == HAL::SR_EMPTY)     HAL::ShowToast("无数据");
+            break;
+        }
+        case STORAGE_CMD_TOGGLE_RECORD: {
+            HAL::Storage_Result r = HAL::Storage_ToggleRecord();
+            if (r == HAL::SR_STARTED)    HAL::ShowToast("开始");
+            else if (r == HAL::SR_SAVED) HAL::ShowToast("保存");
+            else if (r == HAL::SR_FULL)  HAL::ShowToast("存储已满");
+            break;
+        }
+        default:
+            break;
+    }
+}
 
+// 存储任务主体: 先处理按钮委托命令, 再阻塞接收记录队列攒批落盘; 超时则定期刷新
+void HAL::Storage_Task() {
+    // 1) 处理按钮委托的 FS 命令(非阻塞, 全部处理完)
+    Storage_Cmd cmd;
+    while (sCmdQueue && xQueueReceive(sCmdQueue, &cmd, 0) == pdTRUE) {
+        Storage_HandleCmd(cmd.type);
+    }
+
+    // 2) 等待记录队列, 攒批落盘 (超时缩短到 100ms, 保证命令响应延迟 < 100ms)
+    Storage_Record rec;
+    TickType_t timeout = pdMS_TO_TICKS(100);
     if (xStorageQueue && xQueueReceive(xStorageQueue, &rec, timeout) == pdTRUE) {
         // 缓冲写入加锁, 避免与 Storage_Flush(按钮/阈值自动触发) 并发读写出错
         if (xStorageMutex) xSemaphoreTake(xStorageMutex, portMAX_DELAY);
@@ -618,7 +671,7 @@ void HAL::Storage_AutoControl() {
 
     uint64_t nowUs = esp_timer_get_time();
 
-    // 未记录: 起始条件需连续满足 50ms 才触发, 中途不满足则重新防抖
+    // 未记录: 起始条件需连续满足 100ms 才触发, 中途不满足则重新防抖
     if (!gRecording && shouldStart) {
         if (sStartDebounceUs == 0) {
             sStartDebounceUs = nowUs;
@@ -630,7 +683,7 @@ void HAL::Storage_AutoControl() {
         sStartDebounceUs = 0;
     }
 
-    // 记录中: 结束条件需连续满足 50ms 才触发, 中途恢复则不停止
+    // 记录中: 结束条件需连续满足 100ms 才触发, 中途恢复则不停止
     // 手动开始的记录不受自动停止控制
     if (gRecording && shouldStop && !gManualRecording) {
         if (sStopDebounceUs == 0) {
@@ -678,4 +731,24 @@ HAL::Storage_Result HAL::Storage_DeleteSelected() {
         return SR_DELETED;
     }
     return SR_ERROR;
+}
+
+// —— 按钮任务委托接口: 仅入队, FS 操作由存储任务执行 ——
+static void storagePostCmd(Storage_CmdType type) {
+    if (!sCmdQueue) return;
+    Storage_Cmd cmd;
+    cmd.type = type;
+    xQueueSend(sCmdQueue, &cmd, 0);   // 满则丢弃(连按过快, 可接受)
+}
+
+void HAL::Storage_RequestSelectNext() {
+    storagePostCmd(STORAGE_CMD_SELECT_NEXT);
+}
+
+void HAL::Storage_RequestDeleteSelected() {
+    storagePostCmd(STORAGE_CMD_DELETE_SELECTED);
+}
+
+void HAL::Storage_RequestToggleRecord() {
+    storagePostCmd(STORAGE_CMD_TOGGLE_RECORD);
 }

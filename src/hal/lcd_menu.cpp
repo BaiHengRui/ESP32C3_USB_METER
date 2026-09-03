@@ -56,12 +56,12 @@ namespace MenuConfig {
     static void syncOfflineItems() {
         bool on = (record_interval_s != 0);
         uint8_t n = 0;
-        gOfflineItems[n++] = { "启用数据保存", KIND_VALUE,  ID_RECORD_SWITCH };
+        gOfflineItems[n++] = { "启用数据保存功能", KIND_VALUE,  ID_RECORD_SWITCH };
         if (on) {
-            gOfflineItems[n++] = { "保存时间", KIND_VALUE,  ID_RECORD };
-            gOfflineItems[n++] = { "阈值自动", KIND_VALUE,  ID_THRESH_AUTO };
+            gOfflineItems[n++] = { "保存时间间隔", KIND_VALUE,  ID_RECORD };
+            gOfflineItems[n++] = { "阈值自动开始/停止", KIND_VALUE,  ID_THRESH_AUTO };
         }
-        gOfflineItems[n++] = { "清除数据", KIND_ACTION, ACT_CLEAR_DATA };
+        gOfflineItems[n++] = { "清除所有数据", KIND_ACTION, ACT_CLEAR_DATA };
         gOfflineItems[n++] = { "返回",     KIND_BACK,   0 };
         gOfflineCount = n;
     }
@@ -74,10 +74,10 @@ namespace MenuConfig {
 
     static const Group GROUPS[] = {
         { ROOT_ITEMS,      5, "设置"     },   // 组 0
-        { DISPLAY_ITEMS,   3, "显示"     },   // 组 1
-        { SAMPLING_ITEMS,  2, "采样速度" },   // 组 2
-        { INTERFACE_ITEMS, 2, "动画效果" },   // 组 3
-        { gOfflineItems,   5, "数据" },   // 组 4 (条目数动态, 见 curCount)
+        { DISPLAY_ITEMS,   3, "显示设置"     },   // 组 1
+        { SAMPLING_ITEMS,  2, "采样设置" },   // 组 2
+        { INTERFACE_ITEMS, 2, "动画效果设置" },   // 组 3
+        { gOfflineItems,   5, "离线数据" },   // 组 4 (条目数动态, 见 curCount)
     };
 
     // =====================================================================

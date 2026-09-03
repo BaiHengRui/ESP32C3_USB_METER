@@ -4,7 +4,7 @@ static uint64_t thrStartTimeUs = 0;     // 计时开始时刻(us)
 static uint64_t thrStartDebounceUs = 0; // 起始条件防抖起始时刻(us), 0=未在防抖
 static uint64_t thrStopDebounceUs = 0;  // 结束条件防抖起始时刻(us), 0=未在防抖
 
-#define THR_DEBOUNCE_US 50000  // 防抖时间 50ms
+#define THR_DEBOUNCE_US 100000  // 防抖时间 100ms
 
 // 计时阈值更新, 需要在INA数据刷新后调用
 void HAL::Threshold_Timing_Update() {
@@ -24,7 +24,7 @@ void HAL::Threshold_Timing_Update() {
 
     uint64_t nowUs = esp_timer_get_time();
 
-    // 未计时: 起始条件需连续满足 50ms 才触发, 中途不满足则重新防抖
+    // 未计时: 起始条件需连续满足 100ms 才触发, 中途不满足则重新防抖
     if (!thrTimingActive) {
         if (shouldStart) {
             if (thrStartDebounceUs == 0) {
@@ -40,7 +40,7 @@ void HAL::Threshold_Timing_Update() {
         }
     }
 
-    // 计时中: 结束条件需连续满足 50ms 才触发, 中途恢复则不停止
+    // 计时中: 结束条件需连续满足 100ms 才触发, 中途恢复则不停止
     if (thrTimingActive) {
         if (shouldStop) {
             if (thrStopDebounceUs == 0) {

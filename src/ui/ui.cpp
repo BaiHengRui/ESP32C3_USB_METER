@@ -320,7 +320,7 @@ void UI::System_Info(){
 // 绘制离线存储页面内容 (带容量进度条)
 static void _DrawStorageContent() {
     const HAL::Storage_Info& si = HAL::Storage_GetInfo();
-    uint32_t used  = LittleFS.usedBytes();
+    uint32_t used  = si.total_bytes;   // 数据字节数(不含 LittleFS 元数据), 避免每帧全盘遍历 usedBytes()
     uint32_t total = LittleFS.totalBytes();
     uint32_t pct   = (total > 0) ? (uint32_t)((uint64_t)used * 100 / total) : 0;
 
@@ -331,14 +331,14 @@ static void _DrawStorageContent() {
     spr.loadFont(Font1_14);
     spr.setTextColor(0xFFFF);
     spr.setCursor(8, 4);
-    spr.print("数据保存");
+    spr.print("离线数据");
 
     const char* stText;
     uint16_t stColor;
-    if (record_interval_s == 0) { stColor = 0xC618; stText = "OFF"; }
-    else if (si.recording)      { stColor = 0x07FF; stText = "REC"; }
+    if (record_interval_s == 0) { stColor = 0xF800; stText = "OFF"; }
+    else if (si.recording)      { stColor = 0x07E0; stText = "REC"; }
     else if (storage_full)      { stColor = 0xF800; stText = "FULL"; }
-    else                        { stColor = 0x07E0; stText = "IDLE"; }
+    else                        { stColor = 0x07FF; stText = "IDLE"; }
     spr.setTextColor(stColor);
     spr.setCursor(198, 4);
     spr.print(stText);
@@ -351,7 +351,7 @@ static void _DrawStorageContent() {
         uint16_t barColor = si.recording ? 0x07FF : (storage_full ? 0xF800 : 0x07E0);
         spr.fillRoundRect(bx, by, fillW, bh, 4, barColor);     // 填充
     }
-    spr.drawRoundRect(bx, by, bw, bh, 4, 0xC618);              // 边框
+    spr.drawRoundRect(bx, by, bw, bh, 4, 0xFFFF);              // 边框
 
     char pctBuf[12];
     snprintf(pctBuf, sizeof(pctBuf), "%lu%%", (unsigned long)pct);
@@ -386,20 +386,20 @@ static void _DrawStorageContent() {
     if (record_interval_s == 0) {
         spr.setTextColor(0xF800);
         spr.setCursor(8, 108);
-        spr.print("Offline data disabled");
+        spr.print("FUNCTION DISABLED!");
     } else if (si.recording) {
         spr.setTextColor(0x07FF);
         spr.setCursor(8, 108);
-        spr.printf("Rec:%lus  Int:%lus", (unsigned long)si.rec_elapsed_sec, (unsigned long)record_interval_s);
+        spr.printf("Rec:%lu s  Int:%lu s", (unsigned long)si.rec_elapsed_sec, (unsigned long)record_interval_s);
     }
 
     // 底部按键提示
     spr.setTextColor(0x7BEF);
     spr.setCursor(6, 122);
     if (record_interval_s == 0) {
-        spr.print("SW1: disabled");
+        spr.print("NONE CLICK / DISABLED");
     } else {
-        spr.print("SW1: sel/rec/del");
+        spr.print("L1:REC | SW1:SEL | 2/SW1:DEL");  //L = Long, 2/SW1 = Double click SW1, SW1 = Click SW1
     }
     spr.unloadFont();
 }
@@ -502,13 +502,13 @@ static void _DrawMenuContent() {
     // 根据模式显示不同的提示
     switch (MenuConfig::currentMode) {
         case MenuConfig::MODE_IDLE:
-            spr.print("L/SW0:Next | SW1:Select");          // L = Long
+            spr.print("L/SW0:NEXT | SW1:SELECT");          // L = Long
             break;
         case MenuConfig::MODE_SELECT:
-            spr.print("SW0↑ SW1↓ | L0:Back | L1:Select");
+            spr.print("SW0↑ SW1↓ | L0:BACK | L1:SELECT");
             break;
         case MenuConfig::MODE_EDIT:
-            spr.print("SW0+ SW1- | L0:Cancel | L1:Save");
+            spr.print("SW0+ SW1- | L0:CANCEL | L1:SAVE");
             break;
     }
     spr.unloadFont();
