@@ -71,7 +71,7 @@ RAM:   [=         ]   6.6% (used 21660 bytes from 327680 bytes)
 Flash: [====      ]  36.4% (used 715466 bytes from 1966080 bytes)
 ```
 
-> 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz，board 默认 f_cpu)，Arduino framework，默认 release 构建（-Os），CORE_DEBUG_LEVEL=ERROR。
+> 编译环境：PlatformIO Core 6.2.0 + espressif32 @ 7.0.1（framework-arduinoespressif32 3.20017，即 Arduino-ESP32 2.0.17），ESP32-C3 (160MHz，board 默认 f_cpu)，默认 release 构建（-Os），CORE_DEBUG_LEVEL=ERROR。
 
 ## 功能流程顺序
 ### 系统初始化
