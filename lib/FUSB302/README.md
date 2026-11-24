@@ -1,16 +1,23 @@
 # FUSB302 USB PD Library for ESP32 Arduino
 
+<p align="center">
+  <img src="https://img.shields.io/badge/ESP32-E7352C?style=flat-square&logo=espressif&logoColor=white" alt="ESP32">
+  <img src="https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white" alt="Arduino">
+  <img src="https://img.shields.io/badge/PlatformIO-FF7F00?style=flat-square&logo=platformio&logoColor=white" alt="PlatformIO">
+  <img src="https://img.shields.io/badge/Framework-Arduino_%26_ESP--IDF-9cf?style=flat-square" alt="Framework">
+  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT">
+</p>
+
 面向 ESP32（Arduino / PlatformIO）的 FUSB302 USB Type-C 与 USB Power Delivery
 驱动库。参考并重构了以下项目的优点：
 
-- [manuelbl/usb-pd-arduino](https://github.com/manuelbl/usb-pd-arduino)：清晰的
+- [manuelbl/usb-pd-arduino](https://github.com/manuelbl/usb-pd-arduino)：
   Arduino API、PD 报文/PDO 解析与协议分析仪输出。
 - [kralonur/kws-x1-standalone-rs](https://github.com/kralonur/kws-x1-standalone-rs)：
-  FUSB302 寄存器级初始化、RX FIFO 报文重组、CRC 校验、SOP'/SOP''、eMarker
+  FUSB302 寄存器初始化、RX FIFO 报文重组、CRC 校验、SOP'/SOP''、eMarker
   读取与模拟、固定/PPS/AVS 请求构造。
 
-本库不依赖 STM32 外设，仅使用 Arduino `Wire`、`Print`、`millis()`/`delay()`，
-可直接放进 PlatformIO 的 `lib/FUSB302` 或 Arduino 的 `libraries/FUSB302`。
+本库不依赖 STM32 外设，仅使用 Arduino `Wire`、`Print`、`millis()`/`delay()`
 
 ## 功能
 
@@ -53,8 +60,7 @@ lib/FUSB302/
 - I2C 地址：`0x22`（FUSB302BMPX/BVMPX/BUCX；B01/B10/B11 为 `0x23..0x25`）。
 - 逻辑电平 3.3 V；`SCL/SDA` 需要上拉。
 - `INT_N` 可以不接：本库轮询状态/中断寄存器，不依赖外部中断。
-- FUSB302 的 `CC1/CC2` 必须接到 USB-C 连接器的 CC 线；VBUS 测量仍由板上的
-  INA228/INA226 完成，本库不测量 VBUS。
+- FUSB302 的 `CC1/CC2` 必须接到 USB-C 连接器的 CC 线；VBUS 测量仍由板上的其它计量芯片完成，本库不测量 VBUS。
 - 作为 Sink 时，FUSB302 在 CC 上提供 Rd；作为被动分析仪时不要加 Rd，否则会
   干扰原链路。
 - **eMarker 读取**需要把 5 V VCONN 接到 FUSB302 的 VCONN 引脚（具体以硬件原理图
@@ -252,8 +258,6 @@ pd.setI2CLock(wireLock, wireUnlock);
   协商。
 - eMarker 读取会短暂占用 CC/VCONN 并可能打断正常 PD 流量，读取后应重新
   `detectOrientation()` 或让上层重新同步。
-- 本库只负责 FUSB302；VBUS 电压/电流测量、保护与电源路径请使用板上 INA228/
-  INA226 及硬件保护。
 
 ## 参考与许可
 
