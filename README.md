@@ -1,5 +1,12 @@
 # ESP32C3 USB METER
 
+<p align="center">
+  <img src="https://img.shields.io/badge/ESP32--C3-E7352C?style=flat-square&logo=espressif&logoColor=white" alt="ESP32-C3">
+  <img src="https://img.shields.io/badge/Arduino-00979D?style=flat-square&logo=arduino&logoColor=white" alt="Arduino">
+  <img src="https://img.shields.io/badge/Espressif-Systems-E7352C?style=flat-square&logo=espressif&logoColor=white" alt="Espressif Systems">
+  <img src="https://img.shields.io/badge/PlatformIO-FF7F00?style=flat-square&logo=platformio&logoColor=white" alt="PlatformIO">
+</p>
+
 此项目是 ESP32C3-METER 电流表项目的软件部分。
 
 ## 硬件详见 [立创开源平台](https://oshwhub.com/bhr13151022/project_gfxgdvkn)
