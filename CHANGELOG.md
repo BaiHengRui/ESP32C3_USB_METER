@@ -2,6 +2,47 @@
 
 本文件记录 ESP32C3 USB METER 的版本更新历史。
 
+V2.5.0
+
+    1) 新增 USB PD 协议支持：
+        - 新增 lib/FUSB302 库（寄存器/报文/线缆/设备分四层，含示例与 README）
+        - 被动监听模式：不拉 Rd、不发 GoodCRC、不参与协商，不影响被测链路
+        - RX 解析支持 SOP / SOP' / SOP''、CRC 校验、PD2.0 / PD3.x 报文头
+        - 发送能力：Soft_Reset、Request（Fixed / PPS / AVS）、eMarker 发现
+    2) PD 挡位解析与显示：
+        - 解析 Source_Capabilities（Fixed / Battery / Variable / PPS / AVS）
+        - 解析 Request RDO，显示实际生效挡位的电压/电流（PPS / AVS 显示真实设定值）
+        - 主界面右侧在拿到有效 PD 合同后显示 PD3.0 FIX / PPS / AVS + 电压/电流，
+          未拿到有效 Request 时回退显示 mAh/mWh（Ah/Wh）
+        - 新增 PD Monitor 页面：监听状态 / CC / S0 / S1 / RX / ERR / LOST 统计 + 挡位列表，
+          绿色 * 标记当前实际生效挡位
+    3) 新增 eMarker 读取：
+        - 监听模式下临时接管 VCONN / SOP'，读取线缆 eMarker（Soft_Reset + Discover Identity）
+        - 新增 eMarker 页面：VID/PID、供电能力（?V ?A）、数据能力（USB? G?）、主动/被动型
+        - 未插线缆或读取失败时提示检查线缆或翻面重试
+    4) 交互调整：
+        - PD Monitor / eMarker 移入「设置 → USB PD」子菜单
+        - PD 页面：SW1 长按切换 CC1/CC2，SW0 返回菜单
+    5) 嗅探可靠性优化：
+        - PD 任务轮询周期 10ms → 2ms，避免一次握手的多个报文撑爆 FUSB302 RX FIFO
+        - 驱动空闲路径优化为只读 1 个寄存器（STATUS1），CPU 占用基本不变
+        - 自动 CC 方向检测 1s → 100ms，且仅在当前 CC 测不到 Rp 时才试探另一面，不打断收包
+        - 新增 RX FIFO 溢出计数，PD 页 LISTENING 状态以 LOST 字段显示
+    6) 新增「设置 → USB PD → Soft Reset」选项（NVS 键 pd_srst，默认开）：
+        - 该选项为解决PD设备协商速度小于初始化速度的时候无法获取到PDO报文和挡位
+        - 满足条件（监听模式 + VBUS>4V + 开机超 1.2s + 未解析到任何 PD 报文）时，
+          短暂接管 CC 线发送 Soft_Reset，最多 3 次、间隔 1.5s，之后立即恢复被动监听
+        - 解析到 Source_Capabilities / Request 后计数复位；链路始终不通则 3 次后永久停止
+        - 副作用：该 PD 链路会重新协商一次（PPS / AVS 可能短暂回落到 5V），且可能导致设备无法重新握手，可随时关闭
+    7) 默认不再输出 PD 串口调试信息，
+       需要时用 -DFUSB302_PD_DEBUG=1 打开；开机 CC 探测默认关闭，改为运行时自动选择
+    8) LCD 刷屏改为 DMA 推送：
+        - TFT_eSPI 的 ESP32-C3 分支新增 GDMA 实现（SPI2_HOST + SPI_DMA_CH_AUTO，
+          按 SPI_MS_DLEN 18bit 上限分块传输）
+        - 新增 HAL::LCD_PushSprite()：DMA 可用时用 pushImageDMA 整屏推送并等待完成，
+          DMA 初始化失败或非 16 位色彩时自动回退 pushSprite()
+        - 注意：initDMA() 会重配 SPI 引脚（本工程 CS 接地），随后需重新 init() 一次显示
+
 V2.4.4
 
     1) 修复离线数据界面双击 SW1 删除条目时概率性堆栈溢出崩溃：

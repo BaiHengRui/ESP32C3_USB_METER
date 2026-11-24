@@ -42,14 +42,15 @@
       spi_host_device_t spi_host = VSPI_HOST;
     #endif
   #else
-    #ifdef USE_HSPI_PORT
-      #define DMA_CHANNEL 2
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
-    #else // use FSPI port
-      #define DMA_CHANNEL 1
-      spi_host_device_t spi_host = (spi_host_device_t) DMA_CHANNEL; // Draws once then freezes
-    #endif
+    // ESP32 C3 has a single GPSPI (SPI2) and uses the GDMA controller,
+    // so let the driver allocate a DMA channel automatically.
+    #define DMA_CHANNEL SPI_DMA_CH_AUTO
+    spi_host_device_t spi_host = SPI2_HOST;
   #endif
+
+  // ESP32 C3 SPI_MS_DLEN is 18 bits, so one DMA transaction can transfer
+  // at most 2^18 bits = 32768 bytes = 16384 16-bit pixels.
+  #define TFT_C3_DMA_MAX_PIXELS ((1 << 18) / 16)
 #endif
 
 #if !defined (TFT_PARALLEL_8_BIT)
@@ -637,7 +638,7 @@ void TFT_eSPI::dmaWait(void)
 
 /***************************************************************************************
 ** Function name:           pushPixelsDMA
-** Description:             Push pixels to TFT (len must be less than 32767)
+** Description:             Push pixels to TFT
 ***************************************************************************************/
 // This will byte swap the original image if setSwapBytes(true) was called by sketch.
 void TFT_eSPI::pushPixelsDMA(uint16_t* image, uint32_t len)
@@ -650,26 +651,36 @@ void TFT_eSPI::pushPixelsDMA(uint16_t* image, uint32_t len)
     for (uint32_t i = 0; i < len; i++) (image[i] = image[i] << 8 | image[i] >> 8);
   }
 
-  esp_err_t ret;
-  static spi_transaction_t trans;
+  // Splits long transfers into hardware-sized DMA transactions. All but the
+  // last chunk are completed before returning, the last remains asynchronous.
+  while (len) {
+    uint32_t chunk = (len > TFT_C3_DMA_MAX_PIXELS) ? TFT_C3_DMA_MAX_PIXELS : len;
 
-  memset(&trans, 0, sizeof(spi_transaction_t));
+    esp_err_t ret;
+    static spi_transaction_t trans;
 
-  trans.user = (void *)1;
-  trans.tx_buffer = image;  //finally send the line data
-  trans.length = len * 16;        //Data length, in bits
-  trans.flags = 0;                //SPI_TRANS_USE_TXDATA flag
+    memset(&trans, 0, sizeof(spi_transaction_t));
 
-  ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
-  assert(ret == ESP_OK);
+    trans.user = (void *)1;
+    trans.tx_buffer = image;  //finally send the line data
+    trans.length = chunk * 16;      //Data length, in bits
+    trans.flags = 0;                //SPI_TRANS_USE_TXDATA flag
 
-  spiBusyCheck++;
+    ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
+    assert(ret == ESP_OK);
+
+    spiBusyCheck++;
+
+    len -= chunk;
+    image += chunk;
+    if (len) dmaWait();
+  }
 }
 
 
 /***************************************************************************************
 ** Function name:           pushImageDMA
-** Description:             Push image to a window (w*h must be less than 65536)
+** Description:             Push image to a window
 ***************************************************************************************/
 // Fixed const data assumed, will NOT clip or swap bytes
 void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t const* image)
@@ -682,20 +693,28 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
 
   setAddrWindow(x, y, w, h);
 
-  esp_err_t ret;
-  static spi_transaction_t trans;
+  while (len) {
+    uint32_t chunk = (len > TFT_C3_DMA_MAX_PIXELS) ? TFT_C3_DMA_MAX_PIXELS : len;
 
-  memset(&trans, 0, sizeof(spi_transaction_t));
+    esp_err_t ret;
+    static spi_transaction_t trans;
 
-  trans.user = (void *)1;
-  trans.tx_buffer = image;   //Data pointer
-  trans.length = len * 16;   //Data length, in bits
-  trans.flags = 0;           //SPI_TRANS_USE_TXDATA flag
+    memset(&trans, 0, sizeof(spi_transaction_t));
 
-  ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
-  assert(ret == ESP_OK);
+    trans.user = (void *)1;
+    trans.tx_buffer = image;   //Data pointer
+    trans.length = chunk * 16; //Data length, in bits
+    trans.flags = 0;           //SPI_TRANS_USE_TXDATA flag
 
-  spiBusyCheck++;
+    ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
+    assert(ret == ESP_OK);
+
+    spiBusyCheck++;
+
+    len -= chunk;
+    image += chunk;
+    if (len) dmaWait();
+  }
 }
 
 
@@ -758,20 +777,28 @@ void TFT_eSPI::pushImageDMA(int32_t x, int32_t y, int32_t w, int32_t h, uint16_t
 
   setAddrWindow(x, y, dw, dh);
 
-  esp_err_t ret;
-  static spi_transaction_t trans;
+  while (len) {
+    uint32_t chunk = (len > TFT_C3_DMA_MAX_PIXELS) ? TFT_C3_DMA_MAX_PIXELS : len;
 
-  memset(&trans, 0, sizeof(spi_transaction_t));
+    esp_err_t ret;
+    static spi_transaction_t trans;
 
-  trans.user = (void *)1;
-  trans.tx_buffer = buffer;  //finally send the line data
-  trans.length = len * 16;   //Data length, in bits
-  trans.flags = 0;           //SPI_TRANS_USE_TXDATA flag
+    memset(&trans, 0, sizeof(spi_transaction_t));
 
-  ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
-  assert(ret == ESP_OK);
+    trans.user = (void *)1;
+    trans.tx_buffer = buffer;  //finally send the line data
+    trans.length = chunk * 16; //Data length, in bits
+    trans.flags = 0;           //SPI_TRANS_USE_TXDATA flag
 
-  spiBusyCheck++;
+    ret = spi_device_queue_trans(dmaHAL, &trans, portMAX_DELAY);
+    assert(ret == ESP_OK);
+
+    spiBusyCheck++;
+
+    len -= chunk;
+    buffer += chunk;
+    if (len) dmaWait();
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -792,6 +819,20 @@ void IRAM_ATTR dc_callback(spi_transaction_t *spi_tx)
 }
 
 /***************************************************************************************
+** Function name:           dma_end_callback
+** Description:             Clear the GPSPI DMA enable flag at the end of a
+**                          transaction, otherwise the C3 hardware retransmits
+***************************************************************************************/
+extern "C" void dma_end_callback();
+
+void IRAM_ATTR dma_end_callback(spi_transaction_t *spi_tx)
+{
+  // Only stop the TX DMA. Zeroing the whole register also wipes the GPSPI
+  // DMA configuration bits set by spi_ll_init(), which breaks later transfers.
+  CLEAR_PERI_REG_MASK(SPI_DMA_CONF_REG(SPI_PORT), SPI_DMA_TX_ENA);
+}
+
+/***************************************************************************************
 ** Function name:           initDMA
 ** Description:             Initialise the DMA engine - returns true if init OK
 ***************************************************************************************/
@@ -799,10 +840,16 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
 {
   if (DMA_Enabled) return false;
 
+  // TFT_eSPI aliases TFT_MISO to TFT_MOSI on ESP32-C3 when MISO is unused.
+  // Passing that pin as MISO to the IDF driver connects the MISO output
+  // signal to the MOSI pin and overrides MOSI, so the display gets no data.
+  int8_t miso_pin = TFT_MISO;
+  if (miso_pin == TFT_MOSI) miso_pin = -1;
+
   esp_err_t ret;
   spi_bus_config_t buscfg = {
     .mosi_io_num = TFT_MOSI,
-    .miso_io_num = TFT_MISO,
+    .miso_io_num = miso_pin,
     .sclk_io_num = TFT_SCLK,
     .quadwp_io_num = -1,
     .quadhd_io_num = -1,
@@ -832,12 +879,23 @@ bool TFT_eSPI::initDMA(bool ctrl_cs)
     .flags = SPI_DEVICE_NO_DUMMY, //0,
     .queue_size = 1,
     .pre_cb = 0, //dc_callback, //Callback to handle D/C line
-    .post_cb = 0
+    .post_cb = dma_end_callback
   };
   ret = spi_bus_initialize(spi_host, &buscfg, DMA_CHANNEL);
-  ESP_ERROR_CHECK(ret);
+  if (ret != ESP_OK) return false;
+
   ret = spi_bus_add_device(spi_host, &devcfg, &dmaHAL);
-  ESP_ERROR_CHECK(ret);
+  if (ret != ESP_OK) {
+    spi_bus_free(spi_host);
+    return false;
+  }
+
+  // spi_bus_initialize() reconfigures the pins for the IDF driver. Re-route
+  // MOSI and SCLK to the SPI2 peripheral for the direct-register write path.
+  pinMode(TFT_SCLK, OUTPUT);
+  pinMatrixOutAttach(TFT_SCLK, FSPICLK_OUT_IDX, false, false);
+  pinMode(TFT_MOSI, OUTPUT);
+  pinMatrixOutAttach(TFT_MOSI, FSPID_OUT_IDX, false, false);
 
   DMA_Enabled = true;
   spiBusyCheck = 0;

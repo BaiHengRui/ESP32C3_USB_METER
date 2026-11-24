@@ -22,7 +22,7 @@ A ["Discussions"](https://github.com/Bodmer/TFT_eSPI/discussions) facility has b
 
 6. Support has been added in v2.4.70 for the RP2040 with 16-bit parallel displays. This has been tested and the screen update performance is very good (4ms to clear 320 x 480 screen with HC8357C). The use of the RP2040 PIO makes it easy to change the write cycle timing for different displays. DMA with 16-bit transfers is also supported.
 
-7. Support for the ESP32-S2, ESP32-S3 and ESP32-C3 has been added (DMA only on ESP32 S3 at the moment). Tested with v2.0.3 RC1 of the ESP32 board package. Example setups:
+7. Support for the ESP32-S2, ESP32-S3 and ESP32-C3 has been added (DMA on ESP32 S3 and ESP32 C3, SPI interface only). Tested with v2.0.3 RC1 of the ESP32 board package. Example setups:
 
       [Setup70_ESP32_S2_ILI9341.h](https://github.com/Bodmer/TFT_eSPI/blob/master/User_Setups/Setup70_ESP32_S2_ILI9341.h)
       
@@ -58,7 +58,7 @@ The use of PIO for SPI allows the RP2040 to be over-clocked (up to 250MHz works 
 
 # TFT_eSPI
 
-A feature rich Arduino IDE compatible graphics and fonts library for 32-bit processors. The library is targeted at 32-bit processors, it  has been performance optimised for RP2040, STM32, ESP8266 and ESP32 types, other 32-bit processors may be used but will use the slower generic Arduino interface calls. The library can be loaded using the Arduino IDE's Library Manager. Direct Memory Access (DMA) can be used with the ESP32, RP2040 and STM32 processors with SPI interface displays to improve rendering performance. DMA with a parallel interface (8 and 16-bit) is only supported with the RP2040.
+A feature rich Arduino IDE compatible graphics and fonts library for 32-bit processors. The library is targeted at 32-bit processors, it  has been performance optimised for RP2040, STM32, ESP8266 and ESP32 types, other 32-bit processors may be used but will use the slower generic Arduino interface calls. The library can be loaded using the Arduino IDE's Library Manager. Direct Memory Access (DMA) can be used with the ESP32, ESP32-C3, RP2040 and STM32 processors with SPI interface displays to improve rendering performance. DMA with a parallel interface (8 and 16-bit) is only supported with the RP2040.
 
 The updates for the ESP32 S2/C3/S3 means that the library requires the ESP32 Arduino board package 2.x.x or later.
 
@@ -79,7 +79,7 @@ The library supports the following interface types for these processors:
 |-----------|    :---:   |     :---:      |      :---:      |       :---:      |
 | RP2040    |     Yes    |      Yes       |       Yes       |  Yes (all)       |
 | ESP32     |     Yes    |      Yes       |       No        |  Yes (SPI only)  |
-| ESP32 C3  |     Yes    |      No        |       No        |  No              |
+| ESP32 C3  |     Yes    |      No        |       No        |  Yes (SPI only)  |
 | ESP32 S2  |     Yes    |      No        |       No        |  No              |
 | ESP32 S3  |     Yes    |      Yes       |       No        |  Yes (SPI only)  |
 | ESP8266   |     Yes    |      No        |       No        |  No              |
@@ -87,6 +87,18 @@ The library supports the following interface types for these processors:
 | Other     |     Yes    |      No        |       No        |  No              |
 
 For other (generic) processors only SPI interface displays are supported and the slower Arduino SPI library functions are used by the library. Higher clock speed processors such as used for the Teensy 3.x and 4.x boards will still provide a very good performance with the generic Arduino SPI functions.
+
+On the ESP32 C3 the SPI hardware limits one DMA transaction to 2^18 bits (32768 bytes, or 16384 16-bit pixels). The library splits larger `pushImageDMA()`/`pushPixelsDMA()` calls into chunks automatically; all but the last chunk complete before the function returns. DMA source buffers must be in internal DMA-capable RAM (for example a static/heap `uint16_t` array), images held in flash (`const` arrays) cannot be used directly with DMA.
+
+`initDMA()` reconfigures the SPI pins for the ESP-IDF SPI driver. If the display chip select is tied low (`TFT_CS` is `-1`), the panel can see this bus change and needs to be initialised again afterwards, for example:
+
+```cpp
+tft.initDMA();
+if (TFT_CS < 0) {
+  tft.init();                 // re-send the display init sequence
+  tft.setRotation(rotation);
+}
+```
 
 4 wire SPI means the display must have SPI interface comaptible signals and a "Data/Command" control signal, this signal line is sometimes labelled DC, RS or A0. 
 

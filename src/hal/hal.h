@@ -17,7 +17,7 @@
 
 // 软件版本号 & 硬件版本号
 // v Major.Minor.Patch(-branch)
-#define SOFTWARE_VERSION "v2.4.4"
+#define SOFTWARE_VERSION "v2.5.0"
 #define HARDWARE_VERSION "v1.0.5"
 
 #define INA228_EN 1
@@ -115,6 +115,81 @@ namespace HAL
         SR_BUSY,         // 导出进行中
         SR_ERROR,        // 失败
     };
+
+    /* PD 挡位信息 (FUSB302 / USB Power Delivery) */
+    enum PD_SupplyType : uint8_t {
+        PD_FIXED = 0,
+        PD_BATTERY,
+        PD_VARIABLE,
+        PD_PPS,
+        PD_AVS,
+        PD_UNKNOWN,
+    };
+
+    typedef struct
+    {
+        uint8_t  type;        // PD_SupplyType
+        uint8_t  position;    // 1-based PDO position
+        uint16_t min_mV;
+        uint16_t max_mV;
+        uint16_t max_mA;
+        uint32_t max_mW;
+    } PD_SupplyInfo;
+
+    typedef struct
+    {
+        bool     available;   // FUSB302 芯片可用
+        bool     connected;   // 检测到 Source
+        bool     caps_valid;  // 已收到 Source_Capabilities
+        bool     monitor;     // true = passive monitor, false = sink
+        uint8_t  cc;          // monitored / active CC (0 = unknown)
+        uint8_t  revision;    // 1=PD2.0, 2=PD3.x
+        uint8_t  pdo_count;   // 有效挡位数
+        uint8_t  selected;    // UI 光标位置
+        uint32_t updated_ms;  // 最近更新时间
+        uint32_t rx_frames;   // 已接收的 PD 报文数
+        uint32_t rx_errors;   // CRC/帧错误数
+        uint32_t rx_overflow; // RX FIFO 溢出次数(丢包)
+        uint32_t rx_last_ms;  // 最近一次收到报文的时间
+        uint8_t  status0;     // FUSB302 STATUS0 (bit6 = BMC ACTIVITY)
+        uint8_t  status1;     // FUSB302 STATUS1 (bit5 = RX_EMPTY)
+        uint8_t  irq;         // FUSB302 INTERRUPT 快照
+        bool     request_valid;    // 已解析到当前 RDO
+        uint8_t  request_position; // RDO 选中的 PDO 位置(1-based)
+        uint16_t request_mV;       // RDO 实际工作电压
+        uint16_t request_mA;       // RDO 实际工作电流
+        PD_SupplyInfo pdo[7];
+    } PD_Info;
+
+    /* Cable e-Marker (SOP' Discover Identity) */
+    enum EMark_State : uint8_t {
+        EMARK_IDLE = 0,
+        EMARK_READING,
+        EMARK_OK,
+        EMARK_NO_CABLE,
+        EMARK_ERROR,
+    };
+
+    typedef struct
+    {
+        uint8_t  state;          // EMark_State
+        bool     valid;          // 已解码
+        bool     active_cable;
+        bool     epr_capable;
+        bool     vbus_through;
+        bool     sop2_present;
+        bool     current_assumed; // passive v1.0 保留电流码按 3A
+        uint8_t  layout;         // fusb302::CableLayout
+        uint8_t  speed_code;
+        uint16_t vid;
+        uint16_t pid;
+        uint16_t bcd_device;
+        uint32_t xid;
+        uint16_t max_current_mA;
+        uint16_t max_voltage_mV;
+        uint8_t  error;          // fusb302::Error
+        uint32_t updated_ms;
+    } EMark_Info;
 }
 
 // ============================================================
@@ -161,10 +236,18 @@ namespace HAL
     bool     Storage_Erase();
     bool     Storage_IsFull();
 
-    /* PD */
-    // void PD_Init();
-    // void PD_GetData(PDO_Data *data);
-    // String PD_Protocol();
+    /* PD (FUSB302) */
+    void PD_Init();                  // 初始化 FUSB302 并配置为 Sink
+    void PD_Task();                  // PD 任务周期调用: 轮询/解析 Source_Capabilities
+    void PD_GetInfo(PD_Info& info);  // 线程安全地复制当前 PD 挡位信息
+    void PD_SelectNext();            // UI: 切换挡位光标
+    void PD_SelectPrev();
+    void PD_ToggleCC();              // 监听模式: 运行时切换 CC1/CC2
+    void PD_AllowSoftReset(bool allow); // 菜单开关: 允许主动 Soft Reset 重新协商
+
+    /* Cable e-Marker */
+    void EMark_RequestRead();        // 请求读取 SOP' e-Marker (PD 任务执行)
+    void EMark_GetInfo(EMark_Info& info);
 
     /* Button */
     void Button_Init();
@@ -181,6 +264,7 @@ namespace HAL
     void  LCD_SetRotation(uint8_t rotation);
     void  LCD_SetTextColor(uint16_t color);
     void  LCD_Refresh_Screen(uint32_t bgcolor);
+    void  LCD_PushSprite();          // 整屏推送(DMA 可用时走 GDMA)
     float Get_FPS();
 
     /* Graph */
@@ -200,11 +284,15 @@ namespace HAL
 // ============================================================
 namespace AppState
 {
+    // Main pages reachable by SW0 page cycling (0..maxApp).
     constexpr uint8_t MAIN        = 0;
     constexpr uint8_t WAVEGRAPH   = 1;
     constexpr uint8_t STOREAGE_DATA = 2;
     constexpr uint8_t MENU        = 3;
     constexpr uint8_t SYSTEM_INFO = 4;
+    // Menu-only pages (not part of the page cycle).
+    constexpr uint8_t PD_INFO     = 5;
+    constexpr uint8_t EMARK       = 6;
 }
 
 // ============================================================

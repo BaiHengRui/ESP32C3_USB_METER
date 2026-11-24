@@ -7,6 +7,8 @@ namespace UI
 {
     void ShowMain();
     void WaveGraph();
+    void PD_Data();
+    void EMark_Data();
     void Menu();
     void Storage_Data();
     void System_Info();

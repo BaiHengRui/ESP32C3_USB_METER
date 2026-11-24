@@ -14,8 +14,8 @@ namespace MenuConfig {
     // =====================================================================
 
     enum : uint8_t { KIND_MENU, KIND_VALUE, KIND_BACK, KIND_ACTION }; // 菜单项类型
-    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI, ID_RECORD_SWITCH, ID_RECORD, ID_THRESH_AUTO }; // 编辑项 ID
-    enum : uint8_t { ACT_SYSTEM_INFO, ACT_CLEAR_DATA };               // 动作 ID
+    enum : uint8_t { ID_BRIGHT, ID_ROTATE, ID_SAMPLE, ID_UI, ID_RECORD_SWITCH, ID_RECORD, ID_THRESH_AUTO, ID_PD_SRESET }; // 编辑项 ID
+    enum : uint8_t { ACT_SYSTEM_INFO, ACT_CLEAR_DATA, ACT_PD_MONITOR, ACT_EMARK }; // 动作 ID
 
     struct Item {
         const char* title;
@@ -28,7 +28,8 @@ namespace MenuConfig {
         { "显示",     KIND_MENU,   1 },               // → 组 1
         { "采样",     KIND_MENU,   2 },               // → 组 2
         { "动效",     KIND_MENU,   3 },               // → 组 3
-        { "数据", KIND_MENU,   4 },               // → 组 4
+        { "数据",     KIND_MENU,   4 },               // → 组 4
+        { "USB PD",   KIND_MENU,   5 },               // → 组 5
         { "返回",     KIND_BACK,   0 },
     };
     // —— 组 1：显示 ——
@@ -66,6 +67,14 @@ namespace MenuConfig {
         gOfflineCount = n;
     }
 
+    // —— 组 5：USB PD 子页面 ——
+    static const Item PD_ITEMS[] = {
+        { "PD Monitor", KIND_ACTION, ACT_PD_MONITOR },
+        { "eMarker",    KIND_ACTION, ACT_EMARK },
+        { "Soft Reset", KIND_VALUE,  ID_PD_SRESET },
+        { "返回",       KIND_BACK,   0 },
+    };
+
     struct Group {
         const Item* items;
         uint8_t     count;
@@ -73,11 +82,12 @@ namespace MenuConfig {
     };
 
     static const Group GROUPS[] = {
-        { ROOT_ITEMS,      5, "设置"     },   // 组 0
+        { ROOT_ITEMS,      6, "设置"     },   // 组 0
         { DISPLAY_ITEMS,   3, "显示设置"     },   // 组 1
         { SAMPLING_ITEMS,  2, "采样设置" },   // 组 2
         { INTERFACE_ITEMS, 2, "动画效果设置" },   // 组 3
         { gOfflineItems,   5, "离线数据" },   // 组 4 (条目数动态, 见 curCount)
+        { PD_ITEMS,        4, "USB PD" },     // 组 5
     };
 
     // =====================================================================
@@ -95,6 +105,7 @@ namespace MenuConfig {
     static int16_t  tempRecord       = 0;   // 记录时间选项索引 0-4
     static int16_t  tempRecordSwitch = 1;   // 离线数据功能开关 0/1
     static int16_t  tempThreshAuto   = 0;   // 阈值自动 0/1
+    static int16_t  tempPDSReset     = 1;   // PD Soft Reset 0/1
 
     // 当前组
     static const Group& cur()      { return GROUPS[currentGroup]; }
@@ -133,6 +144,7 @@ namespace MenuConfig {
         tempRecord       = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1));
         tempRecordSwitch = (HAL::Sys_NVS_ReadUInt("record_s", 1) != 0) ? 1 : 0;
         tempThreshAuto   = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0);
+        tempPDSReset     = HAL::Sys_NVS_Valid("pd_srst", 1, 1, 0);
     }
 
     // 显示某项的值（编辑中显示临时值，否则显示已存值）
@@ -156,6 +168,7 @@ namespace MenuConfig {
                 case ID_RECORD_SWITCH: v = tempRecordSwitch; break;
                 case ID_RECORD:      v = tempRecord;     break;
                 case ID_THRESH_AUTO: v = tempThreshAuto; break;
+                case ID_PD_SRESET:   v = tempPDSReset;   break;
                 default:             v = 0;
             }
         } else {
@@ -167,6 +180,7 @@ namespace MenuConfig {
                 case ID_RECORD_SWITCH: v = (HAL::Sys_NVS_ReadUInt("record_s", 1) != 0) ? 1 : 0; break;
                 case ID_RECORD:      v = recordSecondsToIndex(HAL::Sys_NVS_ReadUInt("record_s", 1)); break;
                 case ID_THRESH_AUTO: v = HAL::Sys_NVS_Valid("thr_auto", 0, 1, 0); break;
+                case ID_PD_SRESET:   v = HAL::Sys_NVS_Valid("pd_srst", 1, 1, 0); break;
                 default:             v = 0;
             }
         }
@@ -185,6 +199,7 @@ namespace MenuConfig {
                 break;
             }
             case ID_THRESH_AUTO: sprintf(buffer, "%s", v ? "开" : "关"); break;
+            case ID_PD_SRESET:   sprintf(buffer, "%s", v ? "开" : "关"); break;
         }
     }
 
@@ -216,6 +231,9 @@ namespace MenuConfig {
                 break;
             case ID_THRESH_AUTO:
                 tempThreshAuto = tempThreshAuto ? 0 : 1;
+                break;
+            case ID_PD_SRESET:
+                tempPDSReset = tempPDSReset ? 0 : 1;
                 break;
         }
     }
@@ -254,6 +272,11 @@ namespace MenuConfig {
                     HAL::Sys_NVS_Write("thr_auto", tempThreshAuto);
                     threshold_auto = tempThreshAuto;
                     break;
+                case ID_PD_SRESET:
+                    HAL::Sys_NVS_Write("pd_srst", tempPDSReset);
+                    pd_soft_reset = tempPDSReset;
+                    HAL::PD_AllowSoftReset(tempPDSReset != 0);
+                    break;
             }
         } else {
             // 取消：亮度预览已实时改变，恢复为已存值
@@ -278,6 +301,12 @@ namespace MenuConfig {
                 } else {
                     HAL::ShowToast("清除失败");
                 }
+                break;
+            case ACT_PD_MONITOR:
+                nowApp = AppState::PD_INFO;
+                break;
+            case ACT_EMARK:
+                nowApp = AppState::EMARK;
                 break;
         }
     }

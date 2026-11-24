@@ -17,6 +17,8 @@ void HAL::NVS_Load() {
     sample_mode = HAL::Sys_NVS_Valid("sample_mode", 0, 2);
     // UI 过渡动效
     ui_effects = HAL::Sys_NVS_Valid("ui_effects", 1, 1, 0);
+    // PD: 开机未嗅探到握手包时主动发 Soft Reset 重新协商
+    pd_soft_reset = HAL::Sys_NVS_Valid("pd_srst", 1, 1, 0);
     // 计时阈值
     thrStartVMv = HAL::Sys_NVS_ReadUInt("thr_sv", 0);
     thrStartIMa = HAL::Sys_NVS_ReadUInt("thr_si", 0);

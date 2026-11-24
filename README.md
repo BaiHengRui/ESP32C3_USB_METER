@@ -41,7 +41,7 @@ ESP32C3_USB_METER/
 │   │   ├── hal_lcd.cpp      # LCD 初始化 / 亮度 / 旋转 / FPS
 │   │   ├── hal_nvs.cpp      # NVS 持久化存储
 │   │   ├── hal_storage.cpp  # LittleFS 离线记录模块（多条目/会话）
-│   │   ├── hal_protocol.cpp # USB 协议预留（当前为空实现）
+│   │   ├── hal_protocol.cpp # FUSB302 PD 监听 / 挡位解析 / eMarker 读取
 │   │   ├── hal_timer.cpp    # 阈值计时逻辑
 │   │   ├── hal_uart.cpp     # UART 命令接口 + USB CDC 数据包
 │   │   ├── lcd_menu.h       # 菜单系统头文件
@@ -54,6 +54,7 @@ ESP32C3_USB_METER/
 │       └── imgs/
 ├── lib/                     # 第三方库
 │   ├── Button2/             # 按钮库（支持单击/双击/长按）
+│   ├── FUSB302/             # USB PD / Type-C 控制器库（监听 / Sink / eMarker）
 │   ├── INA226Lib/           # INA226 驱动
 │   ├── INA228Lib/           # INA228 驱动
 │   └── TFT_eSPI/            # TFT LCD 驱动
@@ -66,11 +67,12 @@ ESP32C3_USB_METER/
 ## 编译资源占用
 
 ```
-RAM:   [=         ]   6.3% (used 20708 bytes from 327680 bytes)
-Flash: [===       ]  34.4% (used 676754 bytes from 1966080 bytes)
+RAM:   [=         ]   6.6% (used 21660 bytes from 327680 bytes)
+Flash: [====      ]  36.4% (used 715466 bytes from 1966080 bytes)
 ```
 
-> 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz)，Release 模式。
+> 编译环境：PlatformIO (espressif32 @ 7.0.1)，ESP32-C3 (160MHz，board 默认 f_cpu)，Arduino framework，默认 release 构建（-Os），CORE_DEBUG_LEVEL=ERROR。
+
 ## 功能流程顺序
 ### 系统初始化
 ```
@@ -97,6 +99,9 @@ Flash: [===       ]  34.4% (used 676754 bytes from 1966080 bytes)
 │
 ├── Task_INA22x (10ms, 优先级 3)
 │   └── INA228/INA226 数据采集 → 阈值计时更新
+│
+├── Task_PD (2ms, 优先级 3)
+│   └── FUSB302 轮询 → Source_Capabilities / Request RDO / eMarker 探测 / Soft Reset 重新协商
 │
 ├── Task_UART_Command (10ms, 优先级 3)
 │   └── 串口命令解析
@@ -128,7 +133,8 @@ Flash: [===       ]  34.4% (used 676754 bytes from 1966080 bytes)
         └── UI 渲染
             ├── MAIN         主界面 (V/A/W / 能量 / 温度 / 阈值计时 / 系统状态)
             ├── WAVEGRAPH    波形曲线图 (电压+电流双曲线 / 暂停)
-            ├── MENU         设置菜单 (亮度/方向/采样率)
+            ├── STOREAGE_DATA 离线存储
+            ├── MENU         设置菜单 (显示/采样/动效/数据/USB PD)
             └── SYSTEM_INFO  系统信息 (SN/版本/FPS/运行时间)
             └── DrawToast()  ← Toast 通知叠加 (1.5秒自动消失)
 ```
@@ -148,6 +154,46 @@ Flash: [===       ]  34.4% (used 676754 bytes from 1966080 bytes)
 - 采样率: `Sample: Fast` / `Sample: Normal` / `Sample: Slow`
 - 方向: `Rotation: UP` / `Rotation: DOWN`
 - 通过 `pendingRotation` 延迟到帧间切换，避免 SPI 竞态导致花屏/反色
+
+## USB PD 监听（FUSB302）
+
+电表默认以**被动监听**方式挂在 CC 线上
+
+| 项目 | 说明 |
+|------|------|
+| 轮询周期 | **2 ms**（无中断引脚连接） |
+| CC 方向 | **100 ms** 检测一次；如果当前 CC 测不到 Rp 时试探另一面，不打断正在收包的 CC |
+| 挡位列表 | 来自 Source_Capabilities（PDO 列表） |
+| 当前挡位 | 来自 Request RDO（PPS/AVS 显示协商设定电压/电流），绿色 `*` 标记 |
+| 溢出统计 | RX FIFO 溢出次数，PD 页 LISTENING 状态显示为 `LOST` 字段 |
+| 按键 | SW1 长按切换 CC1/CC2，SW0 返回菜单 |
+| 光标 | 仅 SNK 模式（编译 `-DFUSB302_PD_MONITOR=0`），此时电表自己发 Request |
+
+### 设置 → USB PD → Soft Reset
+
+> 开关：**开 / 关**
+
+该选项为解决PD设备协商速度小于初始化速度的时候无法获取到PDO报文和挡位
+
+**触发条件**（必须全部满足）
+
+1. 处于监听模式
+2. VBUS > 4 V
+3. 开机（或该功能被打开）后已超过 1.2 s
+4. 尚未解析到任何 PD 报文，且没拿到 Source_Capabilities
+
+**执行动作**
+
+- FUSB302 暂时接管 CC 线，替 Source 发 **Soft_Reset**，让充电器重新广播 Source_Capabilities，从而完整抓到整个握手
+- 最多 **3 次**，间隔 **1.5 s**
+- 动作结束立即恢复纯被动监听
+- 一旦解析到 Source_Capabilities / Request，计数自动复位，不会反复触发
+- 链路始终不通（例如接的是非 PD 充电器）时，3 次之后停止
+
+**警告信息**
+
+会让PD 链路**重新协商一次**（PPS/AVS 可能短暂回落到 5 V 再切回，相当于一次"重新插拔"级别的事件）。如有无法重新握手等问题请关闭
+
 ## 更新日志
 
 完整更新日志请见 [CHANGELOG.md](./CHANGELOG.md)。

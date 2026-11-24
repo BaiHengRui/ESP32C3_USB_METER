@@ -1,0 +1,61 @@
+{
+    "$schema": "https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/schema/library.json",
+    "name": "FUSB302",
+    "version": "1.0.0",
+    "description": "FUSB302 USB Type-C / USB Power Delivery controller for ESP32 Arduino: CC detection, PD message RX/TX, protocol analyzer output, fixed/PPS/AVS requests, SOP' e-Marker discovery and cable emulation.",
+    "keywords": [
+        "usb",
+        "usb-c",
+        "usb-pd",
+        "power-delivery",
+        "fusb302",
+        "emark",
+        "pd-analyzer",
+        "trigger"
+    ],
+    "authors": [
+        {
+            "name": "BaiHengRui",
+            "url": "https://github.com/BaiHengRui/ESP32C3_USB_METER"
+        }
+    ],
+    "homepage": "https://github.com/BaiHengRui/ESP32C3_USB_METER",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/BaiHengRui/ESP32C3_USB_METER.git"
+    },
+    "license": "MIT",
+    "frameworks": ["arduino"],
+    "platforms": ["espressif32"],
+    "headers": ["FUSB302.h"],
+    "build": {
+        "srcDir": "src"
+    },
+    "examples": [
+        {
+            "name": "CC Detect",
+            "base": "examples/CC_Detect",
+            "files": ["CC_Detect.ino"]
+        },
+        {
+            "name": "PD Analyzer",
+            "base": "examples/PD_Analyzer",
+            "files": ["PD_Analyzer.ino"]
+        },
+        {
+            "name": "PD Sink",
+            "base": "examples/PD_Sink",
+            "files": ["PD_Sink.ino"]
+        },
+        {
+            "name": "E-Marker Dump",
+            "base": "examples/EMark_Dump",
+            "files": ["EMark_Dump.ino"]
+        },
+        {
+            "name": "E-Marker Emulator",
+            "base": "examples/EMark_Emulator",
+            "files": ["EMark_Emulator.ino"]
+        }
+    ]
+}

@@ -116,7 +116,7 @@ void HAL::APP_Run(){
     HAL::ApplyPendingRotation();
 
     // 防止最大app溢出
-    if (nowApp > maxApp)
+    if (nowApp > AppState::EMARK)
     {
         nowApp = 0;
     }
@@ -137,6 +137,12 @@ void HAL::APP_Run(){
         break;
     case AppState::WAVEGRAPH:
         UI::WaveGraph();
+        break;
+    case AppState::PD_INFO:
+        UI::PD_Data();
+        break;
+    case AppState::EMARK:
+        UI::EMark_Data();
         break;
     case AppState::STOREAGE_DATA:
         UI::Storage_Data();

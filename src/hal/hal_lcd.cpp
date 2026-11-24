@@ -8,6 +8,7 @@ TFT_eSprite spr = TFT_eSprite(&tft);
 unsigned long lastFPSTime = 0;
 unsigned int frameCount = 0;
 float currentFPS = 0;
+static bool lcdDmaEnabled = false;
 
 void HAL::LCD_Init(){
     analogWrite(LCD_BL_PIN,0);
@@ -17,9 +18,37 @@ void HAL::LCD_Init(){
     tft.setRotation(currentRotation);
     // tft.setRotation(3); //只能在tft对象操作。0-3 1/3观看为横屏
     spr.setColorDepth(16); //设置颜色深度为16位
+
+    // initDMA() 会为 IDF 驱动重新配置 SPI 引脚；本工程 CS 接地，
+    // 屏幕会看到这次总线切换，所以之后需要重新初始化一次显示。
+    lcdDmaEnabled = tft.initDMA();
+    if (lcdDmaEnabled) {
+        tft.init();
+        tft.setRotation(currentRotation);
+    }
+
     HAL::LCD_SetBrightness(defaultBrightness);
-    HAL::LOG_INFO("LCD Initialized.");
+    HAL::LOG_INFO("LCD Initialized (DMA %s).", lcdDmaEnabled ? "enabled" : "disabled");
     startTime = millis();
+}
+
+void HAL::LCD_PushSprite(){
+    if (!lcdDmaEnabled || spr.getColorDepth() != 16) {
+        spr.pushSprite(0, 0);
+        return;
+    }
+
+    // 与 spr.pushSprite() 保持一致：sprite 数据按原始 RGB565 推送
+    bool oldSwapBytes = tft.getSwapBytes();
+    tft.setSwapBytes(false);
+
+    // 锁住 CS 直到 DMA 完成；本工程 TFT_CS=-1 时同样安全
+    tft.startWrite();
+    tft.pushImageDMA(0, 0, spr.width(), spr.height(), (uint16_t*)spr.getPointer());
+    tft.dmaWait();
+    tft.endWrite();
+
+    tft.setSwapBytes(oldSwapBytes);
 }
 
 void HAL::LCD_SetBrightness(uint8_t brightness){

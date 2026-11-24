@@ -9,6 +9,7 @@ TaskHandle_t xTaskAPP = NULL;
 TaskHandle_t xTaskButton = NULL;
 TaskHandle_t xTaskGraph = NULL;
 TaskHandle_t xTaskStorage = NULL;
+TaskHandle_t xTaskPD = NULL;
 
 // SemaphoreHandle_t xINADataMutex = nullptr;
 
@@ -18,12 +19,14 @@ void Task_APP_Run(void *pvParameters);
 void Task_Button_Click(void *pvParameters);
 void Task_Graph_Update(void *pvParameters);
 void Task_Storage(void *pvParameters);
+void Task_PD(void *pvParameters);
 
 void setup() {
   // put your setup code here, to run once:
   HAL::Sys_Init();
   HAL::Button_Init();
   HAL::INA22x_Init();
+  HAL::PD_Init();      // FUSB302 PD 协议读取(可选, 未检测到芯片时自动跳过)
   HAL::Storage_Init(); // LittleFS 离线记录初始化(队列/互斥锁/数据文件)
   HAL::LCD_Init();
   disableLoopWDT(); // Disable the loop watchdog timer to prevent resets during long operations
@@ -32,6 +35,7 @@ void setup() {
   xTaskCreatePinnedToCore(Task_Button_Click, "Task_Button_Click", 2048, NULL, 4, &xTaskButton, 0); //Max priority for button click handling to ensure responsiveness
   xTaskCreatePinnedToCore(Task_Graph_Update, "Task_Graph_Update", 2048, NULL, 2, &xTaskGraph, 0);
   xTaskCreatePinnedToCore(Task_Storage, "Task_Storage", 4096, NULL, 2, &xTaskStorage, 0);
+  xTaskCreatePinnedToCore(Task_PD, "Task_PD", 4096, NULL, 3, &xTaskPD, 0);
   xTaskCreatePinnedToCore(Task_APP_Run, "Task_APP_Run", 4096, NULL, 1, &xTaskAPP, 0);
   vTaskDelete(NULL); // Delete the default loop task since we will be using our own tasks for handling different functionalities
 }
@@ -105,5 +109,18 @@ void Task_Storage(void *pvParameters)
   {
     HAL::Storage_Task();  // 阻塞接收队列并落盘
     taskYIELD();
+  }
+}
+
+void Task_PD(void *pvParameters)
+{
+  TickType_t xLastWakeTime = xTaskGetTickCount();
+  while (1)
+  {
+    HAL::PD_Task();       // FUSB302 轮询 + Source_Capabilities 解析
+    taskYIELD();
+    // A PD handshake burst is shorter than the FUSB302 RX FIFO, so poll fast
+    // enough to drain it between frames instead of after the burst.
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(2));
   }
 }

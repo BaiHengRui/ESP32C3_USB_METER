@@ -61,6 +61,9 @@ static void onLeftClick() {
                 MenuConfig::AdjustValue(-1);
                 break;
         }
+    } else if (nowApp == AppState::PD_INFO || nowApp == AppState::EMARK) {
+        // PD / eMarker are menu sub-pages, not part of the page cycle.
+        nowApp = AppState::MENU;
     } else {
         nowApp = (nowApp + 1) % (maxApp + 1);
     }
@@ -81,6 +84,10 @@ static void onRightClick() {
         }
     } else if (nowApp == AppState::WAVEGRAPH) {
         graphPaused = !graphPaused;
+    } else if (nowApp == AppState::PD_INFO) {
+        HAL::PD_SelectNext();
+    } else if (nowApp == AppState::EMARK) {
+        HAL::EMark_RequestRead();
     } else if (nowApp == AppState::STOREAGE_DATA) {
         if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
         HAL::Storage_RequestSelectNext();
@@ -99,6 +106,8 @@ static void onLeftLongPress() {
                 MenuConfig::ExitEditMode(false);
                 break;
         }
+    } else if (nowApp == AppState::PD_INFO || nowApp == AppState::EMARK) {
+        nowApp = AppState::MENU;
     } else {
         nowApp = AppState::MAIN;
     }
@@ -119,6 +128,8 @@ static void onRightLongPress() {
         }
     } else if (nowApp == AppState::WAVEGRAPH) {
         graphPaused = !graphPaused;
+    } else if (nowApp == AppState::PD_INFO) {
+        HAL::PD_ToggleCC();
     } else if (nowApp == AppState::STOREAGE_DATA) {
         if (record_interval_s == 0) { HAL::ShowToast("数据保存未开启"); return; }
         HAL::Storage_RequestToggleRecord();

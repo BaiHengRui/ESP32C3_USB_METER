@@ -7,9 +7,7 @@
 #ifndef _TFT_eSPI_ESP32H_
 #define _TFT_eSPI_ESP32H_
 
-#if !defined(DISABLE_ALL_LIBRARY_WARNINGS)
- #warning >>>>------>> DMA is not supported on the ESP32 C3 (possible future update)
-#endif
+// DMA (GDMA) is supported on the ESP32 C3 for SPI displays
 
 // Processor ID reported by getSetup()
 #define PROCESSOR_ID 0x32
@@ -67,9 +65,9 @@ SPI2_HOST = 1
 SPI3_HOST = 2
 */
 
-// ESP32 specific SPI port selection - only SPI2_HOST available on C3
-#define SPI_PORT SPI2_HOST
-#if ESP_IDF_VERSION_MAJOR< 3
+// ESP32 specific SPI port selection - only SPI2_HOST available on C3.
+// SPI register macros index the peripheral with 2 (see REG_SPI_BASE() in soc.h).
+#if ESP_IDF_VERSION_MAJOR < 3
   #define SPI_PORT SPI2_HOST
 #else
   #define SPI_PORT 2

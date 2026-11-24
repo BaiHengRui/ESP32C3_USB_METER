@@ -25,6 +25,8 @@ extern uint8_t  currentRotation;
 extern int8_t   pendingRotation;   // -1=无待处理, 0-3=目标方向
 extern uint8_t  sample_mode;       // 0=Fast, 1=Normal, 2=Slow
 extern uint8_t  ui_effects;        // 1=启用UI过渡动效, 0=禁用
+// PD
+extern uint8_t  pd_soft_reset;     // 1=开机未嗅探到PD握手时主动发Soft Reset重新协商
 
 // Graph
 #define GRAPH_WIDTH 180

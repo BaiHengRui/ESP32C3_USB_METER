@@ -1,4 +1,4 @@
-// This file is ui-transition.cpp
+﻿// This file is ui-transition.cpp
 // only used for UI transition branch
 
 #include "ui.h"
@@ -13,8 +13,11 @@
 // 菜单首次进入标记 (模块作用域, 供 Menu() 和 TransitionTo 共用)
 static bool menuFirstEntry = true;
 
-// 内部绘制辅助函数 — 仅绘制到 spr, 不管理 sprite 生命周期
+// 内部绘制函数
 static void _DrawMainContent() {
+    HAL::PD_Info pd;
+    HAL::PD_GetInfo(pd);
+
     spr.setTextDatum(CC_DATUM);
     spr.fillScreen(0x0000);
 
@@ -45,7 +48,37 @@ static void _DrawMainContent() {
     spr.drawLine(160,0,160,135,0xAD55);
 
     //-- 辅助信息显示 --
-    if (INA.charge_mAh <= 99999 || INA.energy_mWh <= 99999) {
+    if (pd.available && pd.caps_valid && pd.request_valid &&
+        pd.request_mV > 0 && pd.request_mA > 0) {
+        const char* pdType = "PD";
+        if (pd.request_position >= 1 && pd.request_position <= pd.pdo_count) {
+            switch (pd.pdo[pd.request_position - 1].type) {
+                case HAL::PD_FIXED: pdType = "FIX"; break;
+                case HAL::PD_PPS:   pdType = "PPS"; break;
+                case HAL::PD_AVS:   pdType = "AVS"; break;
+                default:            pdType = "PD";  break;
+            }
+        }
+        char label[16];
+        snprintf(label, sizeof(label), "PD%d.0 %s",
+                 pd.revision == 1 ? 2 : 3, pdType);
+
+        spr.loadFont(Font1_12);
+        spr.setCursor(168, 5);
+        spr.setTextColor(0xFEA0);
+        spr.print(label);
+        spr.unloadFont();
+
+        spr.loadFont(Font1_14);
+        spr.setCursor(166, 20);
+        spr.setTextColor(0x07FF);
+        spr.print("V: ");
+        spr.print(pd.request_mV / 1000.0f, 2);
+        spr.setCursor(166, 40);
+        spr.print("A: ");
+        spr.print(pd.request_mA / 1000.0f, 2);
+        spr.unloadFont();
+    } else if (INA.charge_mAh <= 99999 || INA.energy_mWh <= 99999) {
         spr.loadFont(Font1_12);
         spr.setCursor(168,5);
         spr.setTextColor(0xFEA0);
@@ -123,7 +156,7 @@ void UI::ShowMain(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     _DrawMainContent();
     UI::DrawToast();
-    spr.pushSprite(0, 0);
+    HAL::LCD_PushSprite();
     spr.deleteSprite();
 }
 
@@ -279,7 +312,7 @@ void UI::WaveGraph() {
     spr.fillScreen(0x0000);
     _DrawWaveGraphContent();
     UI::DrawToast();
-    spr.pushSprite(0, 0);
+    HAL::LCD_PushSprite();
     spr.deleteSprite();
 }
 
@@ -313,7 +346,376 @@ void UI::System_Info(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     _DrawSystemInfoContent();
     UI::DrawToast();
-    spr.pushSprite(0, 0);
+    HAL::LCD_PushSprite();
+    spr.deleteSprite();
+}
+
+// 将 PD PDO 格式化为一行文本
+static void formatPDSupply(char* buf, size_t size, const HAL::PD_SupplyInfo& p) {
+    switch (p.type) {
+        case HAL::PD_FIXED:
+            snprintf(buf, size, "FIX %.1fV %.1fA", p.max_mV / 1000.0f, p.max_mA / 1000.0f);
+            break;
+        case HAL::PD_BATTERY:
+            snprintf(buf, size, "BAT %.1f-%.1fV %.0fW",
+                     p.min_mV / 1000.0f, p.max_mV / 1000.0f, p.max_mW / 1000.0f);
+            break;
+        case HAL::PD_VARIABLE:
+            snprintf(buf, size, "VAR %.1f-%.1fV %.1fA",
+                     p.min_mV / 1000.0f, p.max_mV / 1000.0f, p.max_mA / 1000.0f);
+            break;
+        case HAL::PD_PPS:
+            snprintf(buf, size, "PPS %.1f-%.1fV %.1fA",
+                     p.min_mV / 1000.0f, p.max_mV / 1000.0f, p.max_mA / 1000.0f);
+            break;
+        case HAL::PD_AVS:
+            snprintf(buf, size, "AVS %.1f-%.1fV %.1fA",
+                     p.min_mV / 1000.0f, p.max_mV / 1000.0f, p.max_mA / 1000.0f);
+            break;
+        default:
+            snprintf(buf, size, "TYPE %u", (unsigned)p.type);
+            break;
+    }
+}
+
+// Draw the PD monitor page (English UI).
+static void _DrawPDContent() {
+    HAL::PD_Info info;
+    HAL::PD_GetInfo(info);
+
+    spr.setTextDatum(TL_DATUM);
+    spr.fillScreen(0x0000);
+
+    spr.loadFont(Font1_14);
+    spr.setTextColor(0xFFFF);
+    spr.setCursor(8, 2);
+    spr.print(info.monitor ? "PD MONITOR" : "PD PROFILES");
+
+    char status[24];
+    uint16_t stColor;
+    if (!info.available) {
+        snprintf(status, sizeof(status), "NO CHIP");
+        stColor = 0xF800;
+    } else if (info.monitor && !info.caps_valid) {
+        snprintf(status, sizeof(status), "LISTENING");
+        stColor = 0x07FF;
+    } else if (!info.connected) {
+        snprintf(status, sizeof(status), "WAIT LINK");
+        stColor = 0xFE60;
+    } else if (!info.caps_valid) {
+        snprintf(status, sizeof(status), "READING");
+        stColor = 0x07FF;
+    } else {
+        snprintf(status, sizeof(status), "PD%d %d PDO",
+                 info.revision == 1 ? 2 : 3, info.pdo_count);
+        stColor = 0x07E0;
+    }
+    spr.setTextDatum(TR_DATUM);
+    spr.setTextColor(stColor);
+    spr.drawString(status, 232, 5);
+    spr.setTextDatum(TL_DATUM);
+    spr.drawLine(0, 21, 239, 21, 0x39E7);
+
+    char vbuf[28];
+    snprintf(vbuf, sizeof(vbuf), "VBUS: %.2f V", INA.voltage);
+    char dbg[40];
+
+    if (!info.available) {
+        spr.setTextColor(0xF800);
+        spr.setCursor(8, 36);
+        spr.print("FUSB302 NOT FOUND");
+    } else if (info.monitor && !info.caps_valid) {
+        spr.setTextColor(0x07FF);
+        spr.setCursor(8, 36);
+        if (info.cc == 1 || info.cc == 2) {
+            snprintf(status, sizeof(status), "Listening CC%u (replug)", (unsigned)info.cc);
+            spr.print(status);
+        } else {
+            spr.print("Listening for PD traffic...");
+        }
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 58);
+        if (info.rx_overflow > 0) {
+            snprintf(dbg, sizeof(dbg), "RX%lu LOST%lu ERR%lu",
+                     (unsigned long)info.rx_frames,
+                     (unsigned long)info.rx_overflow,
+                     (unsigned long)info.rx_errors);
+        } else {
+            snprintf(dbg, sizeof(dbg), "RX%lu ACT%u ERR%lu",
+                     (unsigned long)info.rx_frames,
+                     (info.status0 & 0x40) ? 1u : 0u,
+                     (unsigned long)info.rx_errors);
+        }
+        spr.print(dbg);
+        spr.setCursor(8, 80);
+        snprintf(dbg, sizeof(dbg), "S0:%02X S1:%02X %.2fV",
+                 (unsigned)info.status0, (unsigned)info.status1, INA.voltage);
+        spr.print(dbg);
+    } else if (!info.connected) {
+        spr.setTextColor(0xFE60);
+        spr.setCursor(8, 36);
+        spr.print("No PD source");
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 58);
+        spr.print(vbuf);
+    } else if (!info.caps_valid) {
+        spr.setTextColor(0x07FF);
+        spr.setCursor(8, 36);
+        spr.print("Waiting for Source Caps...");
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 58);
+        spr.print(vbuf);
+    } else {
+        // The Sink's Request RDO identifies the actual contract, including a
+        // PPS setpoint that overlaps a fixed PDO (e.g. PPS 9 V vs fixed 9 V).
+        int active = -1;
+        if (info.request_valid && info.request_position >= 1 &&
+            info.request_position <= info.pdo_count) {
+            active = (int)info.request_position - 1;
+        }
+
+        // Fall back to the measured VBUS when the Request was missed (monitor
+        // started after the contract was negotiated).
+        uint32_t mv = (uint32_t)(INA.voltage * 1000.0f + 0.5f);
+        if (active < 0) {
+            for (uint8_t i = 0; i < info.pdo_count; ++i) {
+                const HAL::PD_SupplyInfo& p = info.pdo[i];
+                if (p.type == HAL::PD_FIXED) {
+                    int diff = (int)mv - (int)p.max_mV;
+                    if (diff < 0) diff = -diff;
+                    if (diff <= 750) {
+                        active = i;
+                        break;
+                    }
+                } else if (p.type == HAL::PD_PPS || p.type == HAL::PD_AVS) {
+                    if (mv >= p.min_mV && mv <= p.max_mV) {
+                        active = i;
+                        break;
+                    }
+                }
+            }
+        }
+        if (active < 0) {
+            int bestDiff = 2501;
+            for (uint8_t i = 0; i < info.pdo_count; ++i) {
+                if (info.pdo[i].type != HAL::PD_FIXED) continue;
+                int diff = (int)mv - (int)info.pdo[i].max_mV;
+                if (diff < 0) diff = -diff;
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    active = i;
+                }
+            }
+        }
+
+        spr.loadFont(Font1_12);
+        const int rowH = 13;
+        const int startY = 24;
+        // A passive monitor cannot change the contract, so the cursor is only
+        // meaningful when the meter owns the Request (sink mode).
+        const bool cursor = !info.monitor;
+        for (uint8_t i = 0; i < info.pdo_count; ++i) {
+            int y = startY + i * rowH;
+            bool selected = cursor && (i == info.selected);
+            bool activeRow = (i == active);
+            if (selected) {
+                spr.fillRect(0, y, 240, rowH, 0x2104);
+            }
+            spr.setTextColor(selected ? 0xFFFF : (activeRow ? 0x07E0 : 0xC618));
+            spr.setCursor(4, y + 1);
+            spr.print(selected ? ">" : " ");
+            spr.setCursor(14, y + 1);
+            spr.print(info.pdo[i].position);
+            char line[36];
+            const HAL::PD_SupplyInfo& p = info.pdo[i];
+            if (info.request_valid && info.request_position == p.position &&
+                info.request_mA > 0) {
+                const char* label = (p.type == HAL::PD_PPS) ? "PPS" :
+                                    (p.type == HAL::PD_AVS) ? "AVS" : "FIX";
+                snprintf(line, sizeof(line), "%s %.1fV %.1fA",
+                         label, info.request_mV / 1000.0f, info.request_mA / 1000.0f);
+            } else {
+                formatPDSupply(line, sizeof(line), p);
+            }
+            spr.setCursor(30, y + 1);
+            spr.print(line);
+            if (activeRow) {
+                spr.setCursor(226, y + 1);
+                spr.print("*");
+            }
+        }
+
+        spr.setTextColor(0x7BEF);
+        spr.setCursor(6, 122);
+        spr.print(info.monitor ? "HOLD SW1:CC SW0:MENU"
+                               : "SW1:CURSOR HOLD:CC SW0:MENU");
+        spr.unloadFont();
+        return;
+    }
+
+    spr.loadFont(Font1_12);
+    spr.setTextColor(0x7BEF);
+    spr.setCursor(6, 122);
+    spr.print("SW1:CURSOR HOLD:CC SW0:MENU");
+    spr.unloadFont();
+}
+
+void UI::PD_Data(){
+    spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
+    _DrawPDContent();
+    UI::DrawToast();
+    HAL::LCD_PushSprite();
+    spr.deleteSprite();
+}
+
+static const char* emarkSpeedName(uint8_t code) {
+    switch (code) {
+        case 0: return "USB 2.0";
+        case 1: return "USB 3.2 Gen1";
+        case 2: return "USB 3.2 Gen2";
+        case 3: return "USB4 Gen3";
+        case 4: return "USB4 Gen4";
+        default: return "USB ?";
+    }
+}
+
+static void _DrawEMarkContent() {
+    HAL::EMark_Info info;
+    HAL::EMark_GetInfo(info);
+
+    HAL::PD_Info pd;
+    HAL::PD_GetInfo(pd);
+
+    spr.setTextDatum(TL_DATUM);
+    spr.fillScreen(0x0000);
+
+    spr.loadFont(Font1_14);
+    spr.setTextColor(0xFFFF);
+    spr.setCursor(8, 2);
+    spr.print("E-MARKER");
+
+    char status[24];
+    uint16_t stColor;
+    if (!pd.available) {
+        snprintf(status, sizeof(status), "NO CHIP");
+        stColor = 0xF800;
+    } else {
+        switch (info.state) {
+            case HAL::EMARK_READING:
+                snprintf(status, sizeof(status), "READING");
+                stColor = 0x07FF;
+                break;
+            case HAL::EMARK_OK:
+                snprintf(status, sizeof(status), "OK");
+                stColor = 0x07E0;
+                break;
+            case HAL::EMARK_NO_CABLE:
+                snprintf(status, sizeof(status), "NO CABLE");
+                stColor = 0xFE60;
+                break;
+            case HAL::EMARK_ERROR:
+                snprintf(status, sizeof(status), "ERROR");
+                stColor = 0xF800;
+                break;
+            default:
+                snprintf(status, sizeof(status), "IDLE");
+                stColor = 0xC618;
+                break;
+        }
+    }
+    spr.setTextDatum(TR_DATUM);
+    spr.setTextColor(stColor);
+    spr.drawString(status, 232, 5);
+    spr.setTextDatum(TL_DATUM);
+    spr.drawLine(0, 21, 239, 21, 0x39E7);
+
+    spr.loadFont(Font1_12);
+    char line[40];
+
+    if (!pd.available) {
+        spr.setTextColor(0xF800);
+        spr.setCursor(8, 40);
+        spr.print("FUSB302 NOT FOUND");
+    } else if (info.state == HAL::EMARK_READING) {
+        spr.setTextColor(0x07FF);
+        spr.setCursor(8, 40);
+        spr.print("Reading e-Marker...");
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 64);
+        spr.print("SOP' Discover Identity");
+        spr.setCursor(8, 86);
+        spr.print("VCONN on inactive CC");
+    } else if (info.state == HAL::EMARK_OK && info.valid) {
+        spr.setTextColor(0xFFFF);
+        snprintf(line, sizeof(line), "VID 0x%04X PID 0x%04X",
+                 (unsigned)info.vid, (unsigned)info.pid);
+        spr.setCursor(8, 36);
+        spr.print(line);
+
+        char pv[8];
+        char pa[12];
+        if (info.max_voltage_mV > 0) {
+            snprintf(pv, sizeof(pv), "%uV", (unsigned)(info.max_voltage_mV / 1000));
+        } else {
+            snprintf(pv, sizeof(pv), "?V");
+        }
+        if (info.max_current_mA > 0) {
+            snprintf(pa, sizeof(pa), "%.1fA%s",
+                     info.max_current_mA / 1000.0f,
+                     info.current_assumed ? "*" : "");
+        } else {
+            snprintf(pa, sizeof(pa), "?A");
+        }
+
+        spr.setTextColor(0xC618);
+        snprintf(line, sizeof(line), "Power: %s %s%s", pv, pa,
+                 info.epr_capable ? " EPR" : "");
+        spr.setCursor(8, 58);
+        spr.print(line);
+
+        snprintf(line, sizeof(line), "Data: %s", emarkSpeedName(info.speed_code));
+        spr.setCursor(8, 80);
+        spr.print(line);
+
+        snprintf(line, sizeof(line), "Type: %s",
+                 info.active_cable ? "Active" : "Passive");
+        spr.setCursor(8, 102);
+        spr.print(line);
+    } else if (info.state == HAL::EMARK_NO_CABLE) {
+        spr.setTextColor(0xFE60);
+        spr.setCursor(8, 40);
+        spr.print("No e-Marker response");
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 64);
+        spr.print("Check Cable or Flip Reverse");
+        spr.setCursor(8, 86);
+        spr.print("And Retry SW1");
+    } else if (info.state == HAL::EMARK_ERROR) {
+        spr.setTextColor(0xF800);
+        spr.setCursor(8, 40);
+        spr.print("e-Marker Read Failed");
+        spr.setTextColor(0xC618);
+        spr.setCursor(8, 64);
+        spr.print("Check Cable or Flip Reverse");
+        spr.setCursor(8, 86);
+        spr.print("And Retry SW1");
+    } else {
+        spr.setTextColor(0xFFFF);
+        spr.setCursor(8, 40);
+        spr.print("Press SW1 to read");
+    }
+
+    spr.setTextColor(0x7BEF);
+    spr.setCursor(6, 122);
+    spr.print("SW1:READ  SW0:MENU");
+    spr.unloadFont();
+}
+
+void UI::EMark_Data(){
+    spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
+    _DrawEMarkContent();
+    UI::DrawToast();
+    HAL::LCD_PushSprite();
     spr.deleteSprite();
 }
 
@@ -409,7 +811,7 @@ void UI::Storage_Data(){
     spr.createSprite(TFT_HEIGHT, TFT_WIDTH);
     _DrawStorageContent();
     UI::DrawToast();
-    spr.pushSprite(0, 0);
+    HAL::LCD_PushSprite();
     spr.deleteSprite();
 }
 
@@ -524,7 +926,7 @@ void UI::Menu() {
     spr.createSprite(240, 135);
     _DrawMenuContent();
     UI::DrawToast();
-    spr.pushSprite(0, 0);
+    HAL::LCD_PushSprite();
     spr.deleteSprite();
 }
 
@@ -537,6 +939,12 @@ static void _DrawPageContent(uint8_t app) {
         case AppState::WAVEGRAPH:
             spr.fillScreen(0x0000);
             _DrawWaveGraphContent();
+            break;
+        case AppState::PD_INFO:
+            _DrawPDContent();
+            break;
+        case AppState::EMARK:
+            _DrawEMarkContent();
             break;
         case AppState::MENU:
             _DrawMenuContent();
@@ -566,7 +974,7 @@ void UI::TransitionTo(uint8_t oldApp, uint8_t newApp) {
         }
         _DrawPageContent(newApp);
         UI::DrawToast();
-        spr.pushSprite(0, 0);
+        HAL::LCD_PushSprite();
         spr.deleteSprite();
         return;
     }
